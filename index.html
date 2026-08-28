@@ -6,8 +6,8 @@
 <title>통합대시보드</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
 <style>
 /* ================= 셸(공통) ================= */
 :root{
@@ -207,6 +207,17 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-rcpt .view{display:none; margin-top:16px;}
 .pg-rcpt .view.on{display:block;}
 .pg-rcpt .need-data{padding:56px 20px; text-align:center; color:var(--sub); border:1.5px dashed var(--line); border-radius:10px; background:var(--panel);}
+.pg-rcpt .vendor-card{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; margin-bottom:12px;}
+.pg-rcpt .vendor-head{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+.pg-rcpt .vendor-name{font-size:14.5px; font-weight:700; color:var(--ink);}
+.pg-rcpt .vendor-code{font-size:12px; color:var(--sub); background:#fff; border:1px solid var(--line); border-radius:4px; padding:1px 7px;}
+.pg-rcpt .vendor-cnt{margin-left:auto; font-size:12px; color:var(--sub);}
+.pg-rcpt .vendor-total-inline{font-size:13px; font-weight:700; color:var(--accent);}
+.pg-rcpt .vendor-mat-table{width:100%; border-collapse:collapse; font-size:12.5px;}
+.pg-rcpt .vendor-mat-table th{text-align:right; color:var(--sub); font-weight:600; padding:5px 8px; border-bottom:1px solid var(--line);}
+.pg-rcpt .vendor-mat-table th.l, .pg-rcpt .vendor-mat-table td.l{text-align:left;}
+.pg-rcpt .vendor-mat-table td{text-align:right; padding:5px 8px; border-bottom:1px solid #EEF1F6;}
+.pg-rcpt .vendor-mat-table tr.vendor-total td{font-weight:700; color:var(--ink); border-top:1.5px solid var(--line); border-bottom:none;}
 .pg-rcpt .need-data strong{display:block; color:var(--ink); margin-bottom:6px; font-size:14px;}
 .pg-rcpt .need-data button{margin-top:14px;}
 .pg-rcpt .table-scroll{overflow-x:auto; border:1px solid var(--line); border-radius:10px; max-height:72vh; overflow-y:auto;}
@@ -323,7 +334,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-rcpt{min-height:auto;background:transparent;}
 .pg-rcpt .wrap{padding:22px 26px 60px;}
 .pg-rcpt #dropzone{display:none !important;}
-.pg-rcpt .controls#rcptControls{display:flex !important;}
+
 .pg-rcpt .sect-hd{margin:18px 0 8px;font-size:12.5px;font-weight:700;color:var(--accent);
   letter-spacing:.04em;display:flex;align-items:center;gap:8px;}
 .pg-rcpt tr.grp td{background:var(--accent-soft);color:var(--accent);font-weight:700;
@@ -584,6 +595,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="insight">요약</div>
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="pivot">자재별 입고분석</div>
       <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="ledger">월별 수불</div>
+      <div class="sb-item sb-sub2" data-page="rcpt" data-rtab="vendor">거래처 기준정보</div>
       <div class="sb-item sb-sub" data-page="plan" data-ptab=""><span class="ic">🚢</span>수입 원료육 입고계획</div>
       <div class="sb-item sb-sub2" data-page="plan" data-ptab="수입전지">수입전지</div>
       <div class="sb-item sb-sub2" data-page="plan" data-ptab="수입지방">수입지방</div>
@@ -591,7 +603,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
       <div class="sb-item sb-sub" data-page="mb" data-mtab="sum"><span class="ic">🔍</span>단위당 원가비교</div>
       <div class="sb-item sb-sub2" data-page="mb" data-mtab="prod">제품별</div>
       <div class="sb-item sb-sub2" data-page="mb" data-mtab="mat">투입자재별</div>
-      <div class="sb-item sb-sub2" data-page="mb" data-mtab="mb">MB5B 이상탐지</div>
+      <div class="sb-item sb-sub2" data-page="mb" data-mtab="mb">이상탐지</div>
     </nav>
     <div class="sb-foot">
       <span class="sb-status busy" id="statusPill"><span class="dot"></span><span id="statusText">불러오는 중…</span></span>
@@ -720,6 +732,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
           <button data-v="insight" class="on">요약<span class="dot"></span></button>
           <button data-v="pivot">자재별 입고분석<span class="dot"></span></button>
           <button data-v="ledger">월별 수불<span class="dot"></span></button>
+          <button data-v="vendor">거래처 기준정보<span class="dot"></span></button>
         </div>
 
         <div class="controls" id="rcptControls" style="margin-top:14px">
@@ -824,6 +837,13 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
                   <button data-m="end">기말재고</button>
                 </div>
               </div>
+              <div class="ctl-group"><span class="ctl-label">구분</span>
+                <div class="seg" id="ledClsSeg">
+                  <button data-c="all" class="on">전체</button>
+                  <button data-c="원재료">원재료</button>
+                  <button data-c="포재료">포재료</button>
+                </div>
+              </div>
               <div class="ctl-group"><input type="text" id="ledSearch" class="search-input" placeholder="자재코드 · 자재내역 검색"></div>
               <span style="font-size:12px; color:var(--sub)" id="ledHint"></span>
             </div>
@@ -834,6 +854,25 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
               </table>
               <div class="empty-msg" id="ledEmpty">선택한 조건에 해당하는 데이터가 없습니다.</div>
             </div>
+          </div>
+        </div>
+
+        <div class="view" id="view-vendor">
+          <div class="need-data" id="nd-vendor"><strong>거래처별 입고 내역을 읽지 못했습니다</strong><span id="ndVendorMsg"></span></div>
+          <div id="vendorBodyWrap" style="display:none">
+            <div class="controls" style="display:flex; margin-bottom:12px">
+              <div class="ctl-group"><span class="ctl-label">연도</span><div class="seg" id="vendorYearSeg"></div></div>
+              <div class="ctl-group"><span class="ctl-label">구분</span>
+                <div class="seg" id="vendorClsSeg">
+                  <button data-c="all" class="on">전체</button>
+                  <button data-c="원재료">원재료</button>
+                  <button data-c="포재료">포재료</button>
+                </div>
+              </div>
+              <div class="ctl-group"><input type="text" id="vendorSearch" class="search-input" placeholder="거래처명 · 자재코드 · 자재명 검색"></div>
+              <span style="font-size:12px; color:var(--sub)">거래처 <b id="vendorCount">0</b>개</span>
+            </div>
+            <div id="vendorBody"></div>
           </div>
         </div>
       </div>
@@ -874,7 +913,7 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
           <button data-t="sum" class="on" disabled>📊 요약</button>
           <button data-t="prod" disabled>📦 제품별</button>
           <button data-t="mat" disabled>🧪 투입자재별</button>
-          <button data-t="mb" disabled>🔍 MB5B 이상탐지</button>
+          <button data-t="mb" disabled>🔍 이상탐지</button>
         </div>
         <section id="sec-sum" class="on">
           <div class="page-head"><div class="eyebrow">Overview</div><h2>단위당 원가 비교 요약</h2>
@@ -1096,6 +1135,15 @@ function syncMbLabels(){
    ① 생산실적
    ===================================================================== */
 const PALETTE=['#1F77B4','#FF7F0E','#2CA02C','#D62728','#9467BD','#8C564B','#E377C2','#7F7F7F','#BCBD22','#17BECF'];
+const catColorMap={};
+function catColor(cat){
+  if(!(cat in catColorMap)){
+    const all=[...new Set(prodState.all.map(r=>r.cat))].sort(catSort);
+    all.forEach((c,i)=>{ if(!(c in catColorMap)) catColorMap[c]=PALETTE[i%PALETTE.length]; });
+    if(!(cat in catColorMap)) catColorMap[cat]=PALETTE[Object.keys(catColorMap).length%PALETTE.length];
+  }
+  return catColorMap[cat];
+}
 const PC={main:'#1F77B4',ink:'#1B2A4A',muted:'#8A96AB',green:'#2CA02C',amber:'#FF7F0E',red:'#D62728',sky:'#17BECF',t1:'#1F77B4'};
 
 /* 카테고리 정렬 우선순위 — 햄 > 소시지 > 베이컨 > 그 외(가나다순).
@@ -1489,7 +1537,7 @@ function renderMonthly(){
       plugins:Object.assign({},baseOpts.plugins,{tooltip:{callbacks:{label:c=>c.dataset.label+': '+fmt(c.parsed.y)+' kg'}}})})});
 }
 function renderPie(){
-  const cats=[...new Set(prodState.view.map(r=>r.cat))];
+  const cats=[...new Set(prodState.view.map(r=>r.cat))].sort(catSort);
   const data=cats.map(c=>prodState.view.filter(r=>r.cat===c).reduce((t,r)=>t+r.qty,0));
   const total=data.reduce((a,b)=>a+b,0);
   const center={id:'ct',afterDraw(ch){
@@ -1523,7 +1571,7 @@ function renderPie(){
     ctx.restore();
   }};
   newChart('chPie',{type:'doughnut',
-    data:{labels:cats,datasets:[{data:data,backgroundColor:PALETTE,borderWidth:2,borderColor:'#fff'}]},
+    data:{labels:cats,datasets:[{data:data,backgroundColor:cats.map(catColor),borderWidth:2,borderColor:'#fff'}]},
     options:Object.assign({},baseOpts,{cutout:'64%',
       plugins:{legend:{position:'bottom',labels:{font:{family:"'Noto Sans KR',sans-serif",size:11},usePointStyle:true,boxWidth:8,padding:13}},
         tooltip:{callbacks:{label:c=>c.label+': '+fmt(c.parsed)+' kg ('+(total?(c.parsed/total*100).toFixed(1):0)+'%)'}}}}),
@@ -1537,7 +1585,7 @@ function renderTop(){
     .sort((a,b)=>b.v-a.v).slice(0,10).reverse();
   newChart('chTop',{type:'bar',
     data:{labels:arr.map(a=>a.item),datasets:[{data:arr.map(a=>a.v),borderRadius:4,
-      backgroundColor:arr.map(a=>PALETTE[cats.indexOf(a.cat)%PALETTE.length])}]},
+      backgroundColor:arr.map(a=>catColor(a.cat))}]},
     options:Object.assign({},baseOpts,{indexAxis:'y',
       scales:{x:{beginAtZero:true,grid:{color:'#EEF1F6'},ticks:{callback:v=>fmt(v)}},y:{grid:{display:false}}},
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>fmt(c.parsed.x)+' kg'}}}})});
@@ -2015,7 +2063,7 @@ document.querySelectorAll('#tabs > button[data-v]').forEach(b=>{
     b.classList.add('on');
     document.querySelectorAll('.pg-rcpt .view').forEach(v=>v.classList.remove('on'));
     document.getElementById('view-'+b.dataset.v).classList.add('on');
-    document.getElementById('rcptControls').style.display=(b.dataset.v==='ledger')?'none':'flex';
+    document.getElementById('rcptControls').style.display=(b.dataset.v==='ledger'||b.dataset.v==='vendor')?'none':'flex';
     document.querySelectorAll('.sb-sub2[data-page="rcpt"]').forEach(x=>x.classList.toggle('on',x.dataset.rtab===b.dataset.v));
   };
 });
@@ -2024,6 +2072,7 @@ function refreshChrome(){
   document.querySelector('#tabs button[data-v="insight"]').classList.toggle('has-data',rcpt.rows.length>0);
   document.querySelector('#tabs button[data-v="pivot"]').classList.toggle('has-data',rcpt.rows.length>0);
   document.querySelector('#tabs button[data-v="ledger"]').classList.toggle('has-data',led.rows.length>0);
+  document.querySelector('#tabs button[data-v="vendor"]').classList.toggle('has-data',rcpt.rows.length>0);
   const parts=[];
   if(rcpt.rows.length) parts.push('입고 <b>'+rcpt.rows.length.toLocaleString()+'</b>건');
   if(led.rows.length) parts.push('수불 <b>'+led.rows.length.toLocaleString()+'</b>건');
@@ -2039,6 +2088,10 @@ document.querySelectorAll('#clsSeg button').forEach(b=>{
     b.classList.add('on'); rcptCls=b.dataset.c; renderReceipts(); };
 });
 document.getElementById('ledSearch').addEventListener('input',renderLedger);
+document.querySelectorAll('#ledClsSeg button').forEach(b=>{
+  b.onclick=()=>{ document.querySelectorAll('#ledClsSeg button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); ledCls=b.dataset.c; renderLedger(); };
+});
 document.querySelectorAll('#metricSeg button').forEach(b=>{
   b.onclick=()=>{ document.querySelectorAll('#metricSeg button').forEach(x=>x.classList.remove('on'));
     b.classList.add('on'); ledMetric=b.dataset.m; renderLedger(); };
@@ -2077,7 +2130,63 @@ function renderReceipts(){
   [...document.getElementById('monthSeg').children].forEach(b=>b.classList.toggle('on',parseInt(b.textContent)===selMonth));
   renderPivotRcpt();
   renderInsight();
+  renderVendorInfo();
 }
+function buildVendorIndex(){
+  const map=new Map();
+  rcpt.rows.forEach(r=>{
+    if(!r.supName) return;
+    if(vendorYear!=='all' && r.year!==vendorYear) return;
+    if(!map.has(r.supName)) map.set(r.supName,{supCode:r.supCode,mats:new Map()});
+    const v=map.get(r.supName);
+    const key=(r.matCode||r.mat);
+    if(!v.mats.has(key)) v.mats.set(key,{matCode:r.matCode,mat:r.mat,cls:r.cls,qty:0,amt:0});
+    const m=v.mats.get(key); m.qty+=r.qty; m.amt+=r.amt;
+  });
+  return map;
+}
+let vendorCls='all', vendorYear='all';
+function buildVendorYearSeg(){
+  const years=[...new Set(rcpt.rows.map(r=>r.year))].sort();
+  const ys=document.getElementById('vendorYearSeg'); ys.innerHTML='';
+  const allBtn=document.createElement('button'); allBtn.textContent='전사'; allBtn.className=vendorYear==='all'?'on':'';
+  allBtn.onclick=()=>{ vendorYear='all'; buildVendorYearSeg(); renderVendorInfo(); };
+  ys.appendChild(allBtn);
+  years.forEach(y=>{
+    const b=document.createElement('button'); b.textContent=y; b.className=(vendorYear===y)?'on':'';
+    b.onclick=()=>{ vendorYear=y; buildVendorYearSeg(); renderVendorInfo(); };
+    ys.appendChild(b);
+  });
+}
+function renderVendorInfo(){
+  const idx=buildVendorIndex();
+  const q=(document.getElementById('vendorSearch').value||'').trim().toLowerCase();
+  let suppliers=[...idx.keys()].sort((a,b)=>a.localeCompare(b,'ko'));
+  if(q) suppliers=suppliers.filter(s=>s.toLowerCase().includes(q)||
+    [...idx.get(s).mats.values()].some(m=>m.mat.toLowerCase().includes(q)||String(m.matCode).toLowerCase().includes(q)));
+  document.getElementById('vendorCount').textContent=suppliers.length;
+  const cards=suppliers.map(s=>{
+    const v=idx.get(s);
+    let mats=[...v.mats.values()].sort((a,b)=>b.amt-a.amt);
+    if(vendorCls!=='all') mats=mats.filter(m=>m.cls===vendorCls);
+    if(!mats.length) return null;
+    const totQty=mats.reduce((a,m)=>a+m.qty,0), totAmt=mats.reduce((a,m)=>a+m.amt,0);
+    return '<div class="vendor-card"><div class="vendor-head"><span class="vendor-name">'+esc(s)+'</span>'+
+      (v.supCode?'<span class="vendor-code">'+esc(v.supCode)+'</span>':'')+
+      '<span class="vendor-cnt">취급 자재 '+mats.length+'종</span>'+
+      '<span class="vendor-total-inline">총 누계 <b>'+fmt(totQty)+'</b> / <b>'+fmt(totAmt)+'</b>원</span></div>'+
+      '<table class="vendor-mat-table"><thead><tr><th class="l">자재코드</th><th class="l">자재명</th><th class="l">구분</th><th>누계 입고수량</th><th>누계 입고금액</th></tr></thead><tbody>'+
+      mats.map(m=>'<tr><td class="l">'+esc(m.matCode)+'</td><td class="l">'+esc(m.mat)+'</td><td class="l">'+esc(m.cls)+'</td><td>'+fmt(m.qty)+'</td><td>'+fmt(m.amt)+'</td></tr>').join('')+
+      '<tr class="vendor-total"><td class="l" colspan="3">총 누계</td><td>'+fmt(totQty)+'</td><td>'+fmt(totAmt)+'</td></tr>'+
+      '</tbody></table></div>';
+  }).filter(Boolean);
+  document.getElementById('vendorBody').innerHTML = cards.length ? cards.join('') : '<div class="empty-msg">해당하는 거래처가 없습니다.</div>';
+}
+document.getElementById('vendorSearch').addEventListener('input',renderVendorInfo);
+document.querySelectorAll('#vendorClsSeg button').forEach(b=>{
+  b.onclick=()=>{ document.querySelectorAll('#vendorClsSeg button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); vendorCls=b.dataset.c; renderVendorInfo(); };
+});
 
 /* ---------- 피벗 상세: 원재료/포재료 구분 + 금액 큰 순 ---------- */
 function renderPivotRcpt(){
@@ -2928,11 +3037,15 @@ async function loadAll(){
     else exclEl.style.display='none';
     document.getElementById('nd-insight').style.display='none';
     document.getElementById('nd-pivot').style.display='none';
+    document.getElementById('nd-vendor').style.display='none';
+    document.getElementById('vendorBodyWrap').style.display='block';
+    buildVendorYearSeg();
     document.getElementById('insightBody').style.display='block';
     document.getElementById('pivotBody').style.display='block';
   }catch(e){
     document.getElementById('ndInsightMsg').textContent=SHEETS.receipts+' — '+e.message;
     document.getElementById('ndPivotMsg').textContent=SHEETS.receipts+' — '+e.message;
+    document.getElementById('ndVendorMsg').textContent=SHEETS.receipts+' — '+e.message;
   }
 
   // --- 월별 수불 ---
