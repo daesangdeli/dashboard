@@ -4038,6 +4038,550 @@ window.__st={S,parse,buildItems,render,act,loadStock};
 })();
 </script>
 
+<!-- ===== 생산팀 일일현황 (인원·근무 / 반별 생산성 / 생산실적) ===== -->
+<style>
+.pg-team .tm-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;}
+.pg-team .tm-tabs button{border:1px solid var(--line);background:#fff;color:var(--muted2);padding:8px 15px;border-radius:8px;
+  font:inherit;font-size:.82rem;font-weight:600;cursor:pointer;}
+.pg-team .tm-tabs button:hover{border-color:var(--main);color:var(--main);}
+.pg-team .tm-tabs button.on{background:var(--main);border-color:var(--main);color:#fff;}
+.pg-team .tm-view{display:none;} .pg-team .tm-view.on{display:block;}
+.pg-team .tm-date{display:inline-block;background:var(--soft);color:var(--main);font-weight:700;font-size:.78rem;border-radius:6px;padding:3px 10px;margin-left:8px;vertical-align:middle;}
+.pg-team .tbl-scroll.free{max-height:none;}
+.pg-team table.tm-grp thead th{text-align:center;}
+.pg-team table.tm-grp thead tr:first-child th{border-bottom:1px solid #D6E4F3;}
+.pg-team table.tm-grp thead th.bl,.pg-team table.tm-grp td.bl{border-left:1px solid #E3E7EE;}
+.pg-team td.tm-note{text-align:left !important;color:var(--muted2);font-size:.78rem;white-space:normal;min-width:110px;}
+.pg-team .tm-neg{color:var(--red);font-weight:700;}
+.pg-team .tm-pos{color:var(--green);font-weight:700;}
+.pg-team .tm-dim{color:#c3c9cf;}
+.pg-team .tm-abs{display:inline-block;min-width:22px;padding:1px 7px;border-radius:5px;background:#FDECEC;color:var(--red);font-weight:700;}
+/* 근무시간 타임라인 */
+.pg-team .tl{margin-top:6px;}
+.pg-team .tl-axis{position:relative;height:20px;margin-left:78px;border-bottom:1px solid var(--line);}
+.pg-team .tl-axis span{position:absolute;top:0;transform:translateX(-50%);font-size:.68rem;color:var(--muted);font-variant-numeric:tabular-nums;}
+.pg-team .tl-axis span:first-child{transform:none;}
+.pg-team .tl-axis span:last-child{transform:translateX(-100%);white-space:nowrap;}
+.pg-team .tl-row{display:flex;align-items:center;height:34px;border-bottom:1px solid #F1F3F7;}
+.pg-team .tl-name{width:78px;flex:0 0 78px;font-size:.8rem;font-weight:600;color:var(--muted2);}
+.pg-team .tl-track{position:relative;flex:1;height:100%;}
+.pg-team .tl-grid{position:absolute;top:0;bottom:0;border-left:1px dashed #EEF1F6;}
+.pg-team .tl-bar{position:absolute;height:11px;border-radius:4px;font-size:0;}
+.pg-team .tl-bar.main{top:5px;background:var(--main);}
+.pg-team .tl-bar.stag{top:18px;background:var(--amber);}
+.pg-team .tl-legend{display:flex;gap:16px;font-size:.74rem;color:var(--muted2);margin-top:10px;}
+.pg-team .tl-legend i{display:inline-block;width:12px;height:8px;border-radius:2px;margin-right:5px;vertical-align:middle;}
+/* 생산성 히트맵 */
+.pg-team td.hm{font-weight:700;}
+.pg-team .mini-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px;}
+.pg-team .mini{border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+.pg-team .mini h3{margin:0 0 4px;font-size:.88rem;font-weight:700;display:flex;justify-content:space-between;align-items:baseline;}
+.pg-team .mini h3 small{font-size:.74rem;color:var(--muted);font-weight:500;}
+.pg-team .mini .chart-box{height:200px;}
+/* 진척율 카드 */
+.pg-team .prog-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;}
+.pg-team .rate-bar{position:relative;}
+.pg-team .rate-bar .cell-bar{display:inline-block;width:60px;height:6px;border-radius:3px;background:#EEF1F6;vertical-align:middle;margin-right:7px;overflow:hidden;}
+.pg-team .rate-bar .cell-bar b{display:block;height:6px;border-radius:3px;background:var(--main);}
+.pg-team .prod-list td:first-child{color:var(--muted);font-variant-numeric:tabular-nums;}
+.pg-team .prod-list td{text-align:left !important;}
+@media (max-width:800px){
+  .pg-team .tl-name{width:58px;flex-basis:58px;font-size:.72rem;}
+  .pg-team .tl-axis{margin-left:58px;}
+  .pg-team .mini-grid{grid-template-columns:1fr;}
+}
+</style>
+<script>
+(function(){
+"use strict";
+/* 구글 시트 탭 이름 — 다르면 여기만 고치면 됩니다 */
+const TM_SHEET='생산팀';
+const DAYS=['월','화','수','목','금','토','일'];
+const COL={main:'#1F77B4',amber:'#FF7F0E',green:'#2CA02C',red:'#D62728',purple:'#9467BD',brown:'#8C564B',pink:'#E377C2',gray:'#7F7F7F',olive:'#BCBD22',sky:'#17BECF'};
+const SERIES=[COL.main,COL.amber,COL.green,COL.purple,COL.sky,COL.brown,COL.pink,COL.olive];
+const S={data:null,view:'staff',charts:{}};
+const VIEWS=[{v:'staff',label:'인원·근무 현황'},{v:'perf',label:'반별 생산성'},{v:'prod',label:'일일 생산실적'}];
+const el=id=>document.getElementById(id);
+const escH=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- 숫자·시간 ---------- */
+function num(v){
+  if(v==null) return null;
+  const s=String(v).replace(/,/g,'').replace(/%\s*$/,'').trim();
+  if(s===''||s==='-') return null;
+  const n=Number(s); return isFinite(n)?n:null;
+}
+function pctv(v){ // "108%" → 1.08 · 0.33 → 0.33
+  const s=String(v==null?'':v).trim(), n=num(s);
+  if(n==null) return null;
+  return /%$/.test(s)||Math.abs(n)>3 ? n/100 : n;
+}
+function f(n,d){ if(n==null||!isFinite(n)) return '-'; return Number(n).toLocaleString('ko-KR',{maximumFractionDigits:d==null?1:d}); }
+function fp(r){ return r==null?'-':Math.round(r*100)+'%'; }
+function sgn(n,d){ if(n==null) return '<span class="tm-dim">-</span>'; if(n===0) return '0';
+  return '<span class="'+(n<0?'tm-neg':'tm-pos')+'">'+(n>0?'+':'')+f(n,d)+'</span>'; }
+function zdim(n,d){ return n==null?'<span class="tm-dim">-</span>':(n===0?'<span class="tm-dim">0</span>':f(n,d)); }
+function tm(v){ // "6:00" · "오후 5:30:00" → 분
+  const s=String(v==null?'':v).trim(); if(!s) return null;
+  const m=s.match(/(오전|오후|AM|PM)?\s*(\d{1,2}):(\d{2})/i); if(!m) return null;
+  let h=+m[2]; const ap=(m[1]||'').toUpperCase();
+  if((ap==='오후'||ap==='PM')&&h<12) h+=12;
+  if((ap==='오전'||ap==='AM')&&h===12) h=0;
+  return h*60+(+m[3]);
+}
+function hm(min){ if(min==null) return '-'; min=((min%1440)+1440)%1440; return Math.floor(min/60)+':'+String(min%60).padStart(2,'0'); }
+function span(a,b){ if(a==null||b==null) return null; let d=b-a; if(d<=0) d+=1440; return d; }
+
+/* ---------- 시트 해석 (빈 행이 빠져도 되도록 A열 구역 제목 기준) ---------- */
+function parse(m){
+  const cell=(r,j)=>String(r&&r[j]!=null?r[j]:'').trim();
+  const c0=r=>cell(r,0);
+  const find=(re,from)=>{ for(let i=from||0;i<m.length;i++) if(re.test(c0(m[i]))) return i; return -1; };
+  const isSec=t=>/^(\d+[\.\)]\s|■)/.test(t);
+  const D={};
+  // 일자: ■ 일자별 생산량 위쪽 = 인원현황 일자, 아래쪽 = 생산 일자
+  const prodHdr=find(/일자별\s*생산/);
+  const dates=[]; m.forEach((r,i)=>{ const x=c0(r).match(/일자\s*[:：]\s*(.+)$/); if(x) dates.push({i,v:x[1].trim()}); });
+  D.staffDate=(dates.find(d=>prodHdr<0||d.i<prodHdr)||{}).v||'';
+  D.prodDate=prodHdr>=0?((dates.find(d=>d.i>prodHdr)||{}).v||''):'';
+
+  // 2. 총 인원 (T.O 행 다음의 숫자 행)
+  const totSec=find(/총\s*인원/);
+  D.total=null;
+  if(totSec>=0) for(let i=totSec+1;i<Math.min(m.length,totSec+6);i++){
+    const r=m[i]; if(num(r[0])==null) continue;
+    D.total={to:num(r[0]),cur:num(r[2]),leave:num(r[4]),half:num(r[6]),sick:num(r[8]),etc:num(r[10]),abs:num(r[12]),work:num(r[14]),note:cell(r,16)};
+    break;
+  }
+  // 3. 반별 근무인원
+  D.bans=[]; D.banTotal=null;
+  const banSec=find(/반별\s*근무\s*인원/);
+  if(banSec>=0) for(let i=banSec+1;i<m.length;i++){
+    const r=m[i], t=c0(r); if(isSec(t)) break;
+    if(!t||num(r[2])==null) continue;
+    const o={name:t,total:num(r[2]),leave:num(r[3]),half:num(r[5]),sick:num(r[7]),etc:num(r[9]),abs:num(r[11]),work:num(r[13]),note:cell(r,15)};
+    if(/합\s*계/.test(t)){ D.banTotal=o; break; }
+    D.bans.push(o);
+  }
+  // 4. 반별 근무시간
+  D.hours=[];
+  const hrSec=find(/근무\s*시간/);
+  if(hrSec>=0) for(let i=hrSec+1;i<m.length;i++){
+    const r=m[i], t=c0(r); if(isSec(t)) break;
+    if(!/.반$/.test(t)) continue;
+    D.hours.push({name:t,in:tm(r[2]),out:tm(r[4]),sin:tm(r[6]),sout:tm(r[8]),sn:num(r[10])});
+  }
+  // 5. 그래프 데이터 (반 이름 아래에 요일이 이어지는 블록)
+  D.blocks=[];
+  for(let i=0;i<m.length-1;i++){
+    const r=m[i];
+    for(let j=1;j<r.length;j++){
+      const t=cell(r,j);
+      if(!/반$/.test(t)||DAYS.indexOf(cell(m[i+1],j))<0||D.blocks.some(b=>b.name===t)) continue;
+      const days=[];
+      for(let k=i+1;k<m.length&&k<=i+7;k++){
+        const d=cell(m[k],j); if(DAYS.indexOf(d)<0) break;
+        const q=num(m[k][j+1]), h=num(m[k][j+2]); let p=num(m[k][j+3]);
+        if(p==null&&q!=null&&h) p=q/h;
+        days.push({d,q,h,p});
+      }
+      D.blocks.push({name:t,days});
+    }
+  }
+  const order=D.bans.map(b=>b.name);
+  D.blocks.sort((a,b)=>{ const x=order.indexOf(a.name),y=order.indexOf(b.name); return (x<0?99:x)-(y<0?99:y); });
+
+  // 품목 행 묶음: 시작행 다음부터 "합계"까지
+  function items(from){
+    const rows=[]; let total=null;
+    if(from<0) return {rows,total};
+    for(let i=from+1;i<m.length;i++){
+      const r=m[i], t=c0(r);
+      if(isSec(t)||/^\*/.test(t)||/^(주간|월간|연간)$/.test(t)) break;
+      if(!t||/^품\s*목$/.test(t)) continue;
+      if(!r.slice(1).some(v=>num(v)!=null)) continue;
+      if(/합\s*계/.test(t)){ total={name:'합계',r}; break; }
+      rows.push({name:t,r});
+    }
+    return {rows,total};
+  }
+  // 2. 일일 실적
+  const mapDaily=x=>({name:x.name,plan:num(x.r[1]),act:num(x.r[2]),diff:num(x.r[3]),capa:num(x.r[4]),upPlan:pctv(x.r[5]),upAct:pctv(x.r[6])});
+  const dl=items(find(/일일\s*실적/, prodHdr<0?0:prodHdr));
+  D.daily={rows:dl.rows.map(mapDaily),total:dl.total?mapDaily(dl.total):null};
+  // 1) 주간생산량
+  const mapWeek=x=>({name:x.name,days:[1,2,3,4,5,6].map(j=>num(x.r[j])),cum:num(x.r[7])});
+  const wk=items(find(/주간\s*생산량/));
+  D.week={rows:wk.rows.map(mapWeek),total:wk.total?mapWeek(wk.total):null};
+  // 2) 월간 생산 진척율
+  const msec=find(/월간\s*생산\s*진척/);
+  D.cumLabel='누계';
+  if(msec>=0) for(let i=msec;i<Math.min(m.length,msec+5);i++) for(let j=1;j<m[i].length;j++){ const t=cell(m[i],j); if(/누계/.test(t)){ D.cumLabel=t; i=m.length; break; } }
+  const mapMon=x=>({name:x.name,
+    weeks:[0,1,2,3,4].map(w=>({plan:num(x.r[1+3*w]),act:num(x.r[2+3*w]),diff:num(x.r[3+3*w])})),
+    planMgmt:num(x.r[16]),planExec:num(x.r[17]),act:num(x.r[18]),diffMgmt:num(x.r[19]),diffExec:num(x.r[20]),
+    rateMgmt:pctv(x.r[21]),rateExec:pctv(x.r[22])});
+  const mo=items(msec);
+  D.month={rows:mo.rows.map(mapMon),total:mo.total?mapMon(mo.total):null};
+  // 3) ALL 시리즈
+  const asec=find(/ALL\s*시리즈/i);
+  const sub=(lbl,n)=>{ const s=asec<0?-1:find(new RegExp('^'+lbl+'$'),asec); const it=items(s);
+    const mp=x=>({name:x.name,vals:Array.from({length:n},(_,k)=>num(x.r[k+1])),cum:num(x.r[n+1])});
+    return {rows:it.rows.map(mp),total:it.total?mp(it.total):null}; };
+  D.all={week:sub('주간',5),month:sub('월간',5),year:sub('연간',12),products:[]};
+  if(asec>=0) for(let i=asec;i<m.length;i++){ const r=m[i];
+    if(num(r[23])!=null&&cell(r,26)) D.all.products.push({code:cell(r,23),grp:cell(r,25),name:cell(r,26)}); }
+  return D;
+}
+
+/* ---------- 차트 ---------- */
+const FONT="'Noto Sans KR',sans-serif";
+function chart(id,cfg){
+  if(typeof Chart==='undefined') return;
+  if(S.charts[id]) S.charts[id].destroy();
+  const c=el(id); if(!c) return;
+  cfg.options=Object.assign({responsive:true,maintainAspectRatio:false,animation:{duration:300},
+    plugins:{legend:{labels:{font:{family:FONT,size:11},usePointStyle:true,boxWidth:8}}}},cfg.options||{});
+  S.charts[id]=new Chart(c,cfg);
+}
+function clearCharts(){ Object.keys(S.charts).forEach(k=>{ try{ S.charts[k].destroy(); }catch(e){} }); S.charts={}; }
+
+/* ---------- ① 인원·근무 현황 ---------- */
+function renderStaff(){
+  const D=S.data, T=D.total||D.banTotal||{};
+  const cur=T.cur!=null?T.cur:(D.banTotal&&D.banTotal.total);
+  const abs=T.abs!=null?T.abs:(D.banTotal&&D.banTotal.abs);
+  const work=T.work!=null?T.work:(D.banTotal&&D.banTotal.work);
+  const absBans=D.bans.filter(b=>b.abs>0);
+  el('tmStaffDate').textContent=D.staffDate||'';
+  el('tmStaffKpis').innerHTML=
+    kpi('T.O (정원)',f(T.to,0),'명','현인원 '+f(cur,0)+'명 · 충원율 '+(T.to?fp(cur/T.to):'-'))+
+    kpi('결원',f(abs,0),'명','휴가·연차 '+f(T.leave,0)+' · 반차 '+f(T.half,0)+' · 공상·병가 '+f(T.sick,0)+' · 기타 '+f(T.etc,0),COL.red)+
+    kpi('근무인원',f(work,0),'명','출근율 '+(cur?fp(work/cur):'-')+' (근무 ÷ 현인원)',COL.green)+
+    kpi('결원 발생 반',f(absBans.length,0),'개 반',absBans.map(b=>b.name).join(' · ')||'결원 없음',COL.amber);
+
+  const rows=D.bans.map(b=>'<tr><td>'+escH(b.name)+'</td><td>'+f(b.total,0)+'</td><td>'+zdim(b.leave,0)+'</td><td>'+zdim(b.half,0)+'</td><td>'+zdim(b.sick,0)+'</td><td>'+zdim(b.etc,0)+'</td>'+
+    '<td>'+(b.abs>0?'<span class="tm-abs">'+f(b.abs,0)+'</span>':zdim(b.abs,0))+'</td><td class="cell-strong">'+f(b.work,0)+'</td><td>'+(b.total?fp(b.work/b.total):'-')+'</td><td class="tm-note">'+escH(b.note)+'</td></tr>').join('');
+  const t=D.banTotal;
+  el('tmBanTbl').innerHTML='<thead><tr><th>반</th><th>총원</th><th>휴가·연차</th><th>반차</th><th>공상·병가</th><th>기타</th><th>결원 계</th><th>근무인원</th><th>출근율</th><th style="text-align:left">비고</th></tr></thead><tbody>'+rows+
+    (t?'<tr class="total"><td>합계</td><td>'+f(t.total,0)+'</td><td>'+f(t.leave,0)+'</td><td>'+f(t.half,0)+'</td><td>'+f(t.sick,0)+'</td><td>'+f(t.etc,0)+'</td><td>'+f(t.abs,0)+'</td><td>'+f(t.work,0)+'</td><td>'+(t.total?fp(t.work/t.total):'-')+'</td><td></td></tr>':'')+'</tbody>';
+
+  chart('tmBanChart',{type:'bar',
+    data:{labels:D.bans.map(b=>b.name),datasets:[
+      {label:'근무',data:D.bans.map(b=>b.work),backgroundColor:COL.main,stack:'s'},
+      {label:'휴가·연차',data:D.bans.map(b=>b.leave),backgroundColor:COL.amber,stack:'s'},
+      {label:'반차',data:D.bans.map(b=>b.half),backgroundColor:COL.olive,stack:'s'},
+      {label:'공상·병가',data:D.bans.map(b=>b.sick),backgroundColor:COL.red,stack:'s'},
+      {label:'기타',data:D.bans.map(b=>b.etc),backgroundColor:COL.gray,stack:'s'}]},
+    options:{indexAxis:'y',scales:{x:{stacked:true,grid:{color:'#F1F3F7'},ticks:{font:{family:FONT,size:10}}},y:{stacked:true,grid:{display:false},ticks:{font:{family:FONT,size:11}}}},
+      plugins:{legend:{position:'bottom',labels:{font:{family:FONT,size:11},usePointStyle:true,boxWidth:8}}}}});
+
+  // 근무시간 표
+  el('tmHourTbl').innerHTML='<thead><tr><th rowspan="2">반</th><th colspan="3" class="bl">정상 근무</th><th colspan="4" class="bl">시차 근무</th></tr>'+
+    '<tr><th class="bl">출근</th><th>퇴근</th><th>구간</th><th class="bl">출근</th><th>퇴근</th><th>구간</th><th>인원</th></tr></thead><tbody>'+
+    D.hours.map(h=>{ const a=span(h.in,h.out), b=span(h.sin,h.sout);
+      return '<tr><td>'+escH(h.name)+'</td><td class="bl">'+hm(h.in)+'</td><td>'+hm(h.out)+'</td><td class="cell-strong">'+(a==null?'-':f(a/60,1)+'h')+'</td>'+
+        '<td class="bl">'+(h.sin==null?'<span class="tm-dim">-</span>':hm(h.sin))+'</td><td>'+(h.sout==null?'<span class="tm-dim">-</span>':hm(h.sout)+(h.sout<h.sin?' <span class="tm-dim">(익일)</span>':''))+'</td>'+
+        '<td>'+(b==null?'<span class="tm-dim">-</span>':f(b/60,1)+'h')+'</td><td>'+(h.sn?f(h.sn,0)+'명':'<span class="tm-dim">-</span>')+'</td></tr>'; }).join('')+'</tbody>';
+  renderTimeline();
+}
+function kpi(t,v,unit,s,color){
+  return '<div class="kpi"'+(color?' style="border-top-color:'+color+'"':'')+'><div class="t">'+escH(t)+'</div><div class="v">'+v+'<small>'+escH(unit)+'</small></div><div class="s">'+escH(s)+'</div></div>';
+}
+function renderTimeline(){
+  const H=S.data.hours; if(!H.length){ el('tmTimeline').innerHTML=''; return; }
+  // 축: 가장 이른 출근 ~ 가장 늦은 퇴근(자정 넘으면 익일로 이어서)
+  const segs=H.map(h=>{ const a=h.in,b=h.out==null?null:(h.out<=h.in?h.out+1440:h.out);
+    const c=h.sin,d=h.sout==null?null:(h.sout<=h.sin?h.sout+1440:h.sout); return {h,a,b,c,d}; });
+  const all=[]; segs.forEach(s=>[s.a,s.b,s.c,s.d].forEach(x=>{ if(x!=null) all.push(x); }));
+  const lo=Math.floor(Math.min.apply(null,all)/60)*60, hi=Math.ceil(Math.max.apply(null,all)/60)*60, W=hi-lo||60;
+  const pos=x=>((x-lo)/W*100).toFixed(2)+'%', wid=(a,b)=>((b-a)/W*100).toFixed(2)+'%';
+  const step=W>14*60?120:60, ticks=[]; for(let x=lo;x<=hi;x+=step) ticks.push(x);
+  el('tmTimeline').innerHTML=
+    '<div class="tl-axis">'+ticks.map(x=>'<span style="left:'+pos(x)+'">'+(x>=1440?'익':'')+Math.floor((x%1440)/60)+'시</span>').join('')+'</div>'+
+    segs.map(s=>'<div class="tl-row"><div class="tl-name">'+escH(s.h.name)+'</div><div class="tl-track">'+
+      ticks.map(x=>'<div class="tl-grid" style="left:'+pos(x)+'"></div>').join('')+
+      (s.a!=null&&s.b!=null?'<div class="tl-bar main" style="left:'+pos(s.a)+';width:'+wid(s.a,s.b)+'" title="정상 '+hm(s.a)+'~'+hm(s.b)+'"></div>':'')+
+      (s.c!=null&&s.d!=null?'<div class="tl-bar stag" style="left:'+pos(s.c)+';width:'+wid(s.c,s.d)+'" title="시차 '+hm(s.c)+'~'+hm(s.d)+' · '+f(s.h.sn,0)+'명"></div>':'')+
+      '</div></div>').join('')+
+    '<div class="tl-legend"><span><i style="background:'+COL.main+'"></i>정상 근무</span><span><i style="background:'+COL.amber+'"></i>시차 근무</span></div>';
+}
+
+/* ---------- ② 반별 생산성 ---------- */
+function blockSum(b){
+  const d=b.days.filter(x=>x.q!=null||x.h!=null);
+  const q=d.reduce((s,x)=>s+(x.q||0),0), h=d.reduce((s,x)=>s+(x.h||0),0);
+  const ps=d.filter(x=>x.p!=null);
+  const best=ps.length?ps.reduce((a,x)=>x.p>a.p?x:a):null, worst=ps.length?ps.reduce((a,x)=>x.p<a.p?x:a):null;
+  return {n:d.length,q,h,p:h?q/h:null,avgH:d.length?h/d.length:null,best,worst,last:d[d.length-1]||null};
+}
+function renderPerf(){
+  const B=S.data.blocks;
+  el('tmPerfDate').textContent=S.data.staffDate||'';
+  if(!B.length){ el('tmPerfBody').innerHTML='<div class="sheet-msg"><b>그래프 데이터를 찾지 못했습니다</b>반 이름 아래에 월~토 요일과 생산량·시간·생산성이 이어지는 표를 확인해주세요.</div>'; return; }
+  const sums=B.map(b=>({b,s:blockSum(b)}));
+  const filled=DAYS.filter(d=>B.some(b=>b.days.some(x=>x.d===d&&(x.q!=null||x.h!=null))));
+  const tq=sums.reduce((a,x)=>a+x.s.q,0), th=sums.reduce((a,x)=>a+x.s.h,0);
+  const ranked=sums.filter(x=>x.s.p!=null).sort((a,b)=>b.s.p-a.s.p);
+  el('tmPerfKpis').innerHTML=
+    kpi('집계 요일',f(filled.length,0),'일',filled.length?filled[0]+'~'+filled[filled.length-1]+'요일 입력분':'입력 없음')+
+    kpi('전체 생산량',f(tq,1),'',B.length+'개 반 합계 · 투입시간 '+f(th,1)+'h',COL.green)+
+    kpi('평균 생산성',th?f(tq/th,2):'-','/h','생산량 합계 ÷ 시간 합계',COL.amber)+
+    kpi('최고 생산성 반',ranked.length?escH(ranked[0].b.name):'-','',ranked.length?f(ranked[0].s.p,2)+'/h · 최저 '+ranked[ranked.length-1].b.name+' '+f(ranked[ranked.length-1].s.p,2)+'/h':'',COL.purple);
+
+  // 요약 표 + 히트맵
+  const allP=[]; B.forEach(b=>b.days.forEach(x=>{ if(x.p!=null) allP.push(x.p); }));
+  const pMax=allP.length?Math.max.apply(null,allP):1;
+  const heat=p=>{ if(p==null) return ''; const a=0.08+0.5*(p/pMax); return ' style="background:rgba(31,119,180,'+a.toFixed(2)+');color:'+(a>0.4?'#fff':'#1B2A4A')+'"'; };
+  el('tmPerfTbl').innerHTML='<thead><tr><th>반</th><th>입력일</th><th>생산량 계</th><th>시간 계</th><th>일평균 시간</th><th>생산성</th>'+
+    filled.map((d,i)=>'<th'+(i===0?' class="bl"':'')+'>'+d+'</th>').join('')+'</tr></thead><tbody>'+
+    sums.map(x=>'<tr><td>'+escH(x.b.name)+'</td><td>'+x.s.n+'일</td><td>'+f(x.s.q,1)+'</td><td>'+f(x.s.h,1)+'</td><td>'+f(x.s.avgH,1)+'</td><td class="cell-strong">'+f(x.s.p,2)+'</td>'+
+      filled.map((d,i)=>{ const v=x.b.days.find(y=>y.d===d); const p=v&&v.p;
+        return '<td class="hm'+(i===0?' bl':'')+'"'+heat(p)+' title="'+(v?'생산량 '+f(v.q,1)+' · 시간 '+f(v.h,1)+'h':'')+'">'+(p==null?'<span class="tm-dim">-</span>':f(p,1))+'</td>'; }).join('')+'</tr>').join('')+
+    '<tr class="total"><td>합계</td><td></td><td>'+f(tq,1)+'</td><td>'+f(th,1)+'</td><td></td><td>'+(th?f(tq/th,2):'-')+'</td>'+filled.map((d,i)=>'<td'+(i===0?' class="bl"':'')+'></td>').join('')+'</tr></tbody>';
+
+  chart('tmPerfRank',{type:'bar',
+    data:{labels:sums.map(x=>x.b.name),datasets:[
+      {label:'생산성 (생산량÷시간)',data:sums.map(x=>x.s.p==null?null:+x.s.p.toFixed(2)),backgroundColor:sums.map(x=>/^가공/.test(x.b.name)?COL.main:COL.amber),borderRadius:5}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#F1F3F7'}},x:{grid:{display:false},ticks:{font:{family:FONT,size:11}}}}}});
+
+  // 반별 소형 그래프 (시트의 "5. 일별, 반별 생산량 대비 그래프")
+  const days=DAYS.slice(0,Math.max(6,...B.map(b=>b.days.length)));
+  el('tmMini').innerHTML=sums.map((x,i)=>'<div class="mini"><h3>'+escH(x.b.name)+'<small>생산성 '+f(x.s.p,2)+'/h · 생산량 '+f(x.s.q,1)+'</small></h3><div class="chart-box"><canvas id="tmMini'+i+'"></canvas></div></div>').join('');
+  sums.forEach((x,i)=>{
+    const pick=k=>days.map(d=>{ const v=x.b.days.find(y=>y.d===d); return v&&v[k]!=null?+(+v[k]).toFixed(2):null; });
+    chart('tmMini'+i,{data:{labels:days,datasets:[
+      {type:'bar',label:'생산량',data:pick('q'),backgroundColor:/^가공/.test(x.b.name)?'rgba(31,119,180,.75)':'rgba(255,127,14,.75)',borderRadius:4,yAxisID:'y',order:2},
+      {type:'bar',label:'시간(h)',data:pick('h'),backgroundColor:'#D5DCE6',borderRadius:4,yAxisID:'y',order:3},
+      {type:'line',label:'생산성',data:pick('p'),borderColor:COL.red,backgroundColor:COL.red,pointRadius:3,tension:.25,yAxisID:'y1',order:1,spanGaps:true}]},
+      options:{plugins:{legend:{position:'bottom',labels:{font:{family:FONT,size:10},usePointStyle:true,boxWidth:7}}},
+        scales:{x:{grid:{display:false}},y:{beginAtZero:true,grid:{color:'#F1F3F7'},ticks:{font:{size:10}}},
+          y1:{beginAtZero:true,position:'right',grid:{display:false},ticks:{font:{size:10}}}}}});
+  });
+}
+
+/* ---------- ③ 생산실적 (생산팀) ---------- */
+function renderProdTeam(){
+  const D=S.data, dl=D.daily, wk=D.week, mo=D.month, AL=D.all;
+  el('tmProdDate').textContent=D.prodDate||'';
+  const dt=dl.total||{}, wt=wk.total||{}, mt=mo.total||{};
+  el('tmProdKpis').innerHTML=
+    kpi('일일 실적',f(dt.act,1),'톤','계획 '+f(dt.plan,1)+'톤 · 차이 '+(dt.diff==null?'-':(dt.diff>0?'+':'')+f(dt.diff,1)))+
+    kpi('가동률 (CAPA 대비)',dt.upAct==null?'-':Math.round(dt.upAct*100),'%','CAPA '+f(dt.capa,1)+'톤 · 계획 가동률 '+fp(dt.upPlan),COL.green)+
+    kpi('주간 누계',f(wt.cum,1),'톤',wk.rows.map(r=>r.name+' '+f(r.cum,1)).join(' · '),COL.amber)+
+    kpi('월간 진척율 (실행)',mt.rateExec==null?'-':Math.round(mt.rateExec*100),'%','실적 '+f(mt.act,0)+' / 실행계획 '+f(mt.planExec,0)+'톤 · 경영 '+fp(mt.rateMgmt),COL.purple);
+
+  // 일일 실적
+  const upCell=r=>r==null?'-':'<span class="rate-bar"><span class="cell-bar"><b style="width:'+Math.min(100,r*100).toFixed(0)+'%;background:'+(r>=1?COL.green:r>=0.8?COL.main:COL.red)+'"></b></span>'+fp(r)+'</span>';
+  const dRow=(r,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td>'+escH(r.name)+'</td><td>'+f(r.plan,1)+'</td><td class="cell-strong">'+f(r.act,1)+'</td><td>'+sgn(r.diff,1)+'</td><td>'+f(r.capa,1)+'</td><td>'+fp(r.upPlan)+'</td><td>'+upCell(r.upAct)+'</td></tr>';
+  el('tmDailyTbl').innerHTML='<thead><tr><th>품목</th><th>계획</th><th>실적</th><th>차이</th><th>CAPA</th><th>가동률(계획)</th><th>가동률(실적)</th></tr></thead><tbody>'+
+    dl.rows.map(r=>dRow(r)).join('')+(dl.total?dRow(dl.total,'total'):'')+'</tbody>';
+  chart('tmDailyChart',{type:'bar',data:{labels:dl.rows.map(r=>r.name),datasets:[
+      {label:'계획',data:dl.rows.map(r=>r.plan),backgroundColor:'#C9D9EC',borderRadius:4},
+      {label:'실적',data:dl.rows.map(r=>r.act),backgroundColor:COL.main,borderRadius:4},
+      {type:'line',label:'CAPA',data:dl.rows.map(r=>r.capa),borderColor:COL.red,backgroundColor:COL.red,showLine:false,pointStyle:'line',pointBorderWidth:3,pointRadius:14}]},
+    options:{scales:{y:{beginAtZero:true,grid:{color:'#F1F3F7'},title:{display:true,text:'톤'}},x:{grid:{display:false}}}}});
+
+  // 주간 생산량
+  const dlabels=['월','화','수','목','금','토'];
+  el('tmWeekTbl').innerHTML='<thead><tr><th>품목</th>'+dlabels.map(d=>'<th>'+d+'</th>').join('')+'<th>누계</th></tr></thead><tbody>'+
+    wk.rows.map(r=>'<tr><td>'+escH(r.name)+'</td>'+r.days.map(v=>'<td>'+zdim(v,1)+'</td>').join('')+'<td class="cell-strong">'+f(r.cum,1)+'</td></tr>').join('')+
+    (wk.total?'<tr class="total"><td>합계</td>'+wk.total.days.map(v=>'<td>'+f(v,1)+'</td>').join('')+'<td>'+f(wk.total.cum,1)+'</td></tr>':'')+'</tbody>';
+  chart('tmWeekChart',{type:'bar',data:{labels:dlabels,datasets:wk.rows.map((r,i)=>({label:r.name,data:r.days,backgroundColor:SERIES[i%SERIES.length],stack:'s',borderRadius:3}))},
+    options:{plugins:{legend:{position:'bottom',labels:{font:{family:FONT,size:11},usePointStyle:true,boxWidth:8}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,grid:{color:'#F1F3F7'},title:{display:true,text:'톤'}}}}});
+
+  // 월간 진척율 카드
+  el('tmCumLabel').textContent=D.cumLabel;
+  el('tmProgCards').innerHTML=mo.rows.concat(mo.total?[Object.assign({},mo.total,{name:'합계'})]:[]).map((r,i)=>{
+    const c=r.name==='합계'?COL.gray:SERIES[i%SERIES.length];
+    const bar=(lbl,rate,plan)=>'<div class="bar-label"><span>'+lbl+' · 계획 '+f(plan,0)+'톤</span><span>'+fp(rate)+'</span></div><div class="track"><div class="fill" style="width:'+Math.min(100,(rate||0)*100).toFixed(1)+'%;background:'+c+'"></div></div>';
+    return '<div class="cat-card" style="border-top-color:'+c+'"><div class="cat-top"><span class="cat-name">'+escH(r.name)+'</span><span class="cat-qty">'+f(r.act,0)+'톤</span></div>'+
+      bar('실행계획',r.rateExec,r.planExec)+bar('경영계획',r.rateMgmt,r.planMgmt)+
+      '<div class="cat-sub">잔여 — 실행 '+f(r.diffExec==null?null:-r.diffExec,0)+'톤 · 경영 '+f(r.diffMgmt==null?null:-r.diffMgmt,0)+'톤</div></div>';
+  }).join('');
+  // 월간 진척율 상세 표 (주차별)
+  const wkn=[0,1,2,3,4].filter(w=>mo.rows.concat(mo.total||[]).some(r=>r.weeks[w].plan!=null||r.weeks[w].act!=null));
+  const mRow=(r,cls)=>'<tr'+(cls?' class="'+cls+'"':'')+'><td>'+escH(r.name)+'</td>'+
+    wkn.map(w=>{ const x=r.weeks[w]; return '<td class="bl">'+f(x.plan,0)+'</td><td>'+(x.act==null?'<span class="tm-dim">-</span>':f(x.act,0))+'</td><td>'+sgn(x.diff,0)+'</td>'; }).join('')+
+    '<td class="bl">'+f(r.planMgmt,0)+'</td><td>'+f(r.planExec,0)+'</td><td class="cell-strong">'+f(r.act,0)+'</td><td>'+sgn(r.diffMgmt,0)+'</td><td>'+sgn(r.diffExec,0)+'</td><td>'+fp(r.rateMgmt)+'</td><td class="cell-strong">'+fp(r.rateExec)+'</td></tr>';
+  el('tmMonthTbl').innerHTML='<thead><tr><th rowspan="2">품목</th>'+wkn.map(w=>'<th colspan="3" class="bl">'+(w+1)+'주</th>').join('')+'<th colspan="7" class="bl">'+escH(D.cumLabel)+'</th></tr>'+
+    '<tr>'+wkn.map(()=>'<th class="bl">실행계획</th><th>실적</th><th>차이</th>').join('')+'<th class="bl">계획(경영)</th><th>계획(실행)</th><th>실적</th><th>차이(경영)</th><th>차이(실행)</th><th>진척율(경영)</th><th>진척율(실행)</th></tr></thead><tbody>'+
+    mo.rows.map(r=>mRow(r)).join('')+(mo.total?mRow(mo.total,'total'):'')+'</tbody>';
+  const tw=mo.total||{weeks:[]};
+  chart('tmMonthChart',{type:'bar',data:{labels:wkn.map(w=>(w+1)+'주'),datasets:[
+      {label:'실행계획',data:wkn.map(w=>tw.weeks[w]&&tw.weeks[w].plan),backgroundColor:'#C9D9EC',borderRadius:4},
+      {label:'실적',data:wkn.map(w=>tw.weeks[w]&&tw.weeks[w].act),backgroundColor:COL.main,borderRadius:4}]},
+    options:{plugins:{legend:{position:'bottom',labels:{font:{family:FONT,size:11},usePointStyle:true,boxWidth:8}}},scales:{y:{beginAtZero:true,grid:{color:'#F1F3F7'},title:{display:true,text:'톤 (합계)'}},x:{grid:{display:false}}}}});
+
+  // ALL 시리즈
+  const simple=(id,blk,heads)=>{ el(id).innerHTML='<thead><tr><th>구분</th>'+heads.map(h=>'<th>'+h+'</th>').join('')+'<th>누계</th></tr></thead><tbody>'+
+    blk.rows.map(r=>'<tr><td>'+escH(r.name)+'</td>'+r.vals.map(v=>'<td>'+zdim(v,1)+'</td>').join('')+'<td class="cell-strong">'+f(r.cum,1)+'</td></tr>').join('')+
+    (blk.total?'<tr class="total"><td>합계</td>'+blk.total.vals.map(v=>'<td>'+f(v,1)+'</td>').join('')+'<td>'+f(blk.total.cum,1)+'</td></tr>':'')+'</tbody>'; };
+  simple('tmAllWeek',AL.week,['월','화','수','목','금']);
+  simple('tmAllMonth',AL.month,['1주','2주','3주','4주','5주']);
+  const mlabels=Array.from({length:12},(_,i)=>(i+1)+'월');
+  simple('tmAllYear',AL.year,mlabels);
+  chart('tmAllYearChart',{type:'bar',data:{labels:mlabels,datasets:AL.year.rows.map((r,i)=>({label:r.name,data:r.vals,backgroundColor:SERIES[i%SERIES.length],stack:'s',borderRadius:3}))},
+    options:{plugins:{legend:{position:'bottom',labels:{font:{family:FONT,size:11},usePointStyle:true,boxWidth:8}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true,grid:{color:'#F1F3F7'},title:{display:true,text:'톤'}}}}});
+  el('tmAllProducts').innerHTML=AL.products.length?'<thead><tr><th>자재코드</th><th>구분</th><th>제품명</th></tr></thead><tbody>'+
+    AL.products.map(p=>'<tr><td>'+escH(p.code)+'</td><td>'+escH(p.grp)+'</td><td>'+escH(p.name)+'</td></tr>').join('')+'</tbody>':'';
+  el('tmAllProdWrap').style.display=AL.products.length?'block':'none';
+}
+
+/* ---------- 화면 전환 ---------- */
+function render(){
+  if(!S.data) return;
+  clearCharts();
+  document.querySelectorAll('#page-team .tm-view').forEach(v=>v.classList.toggle('on',v.dataset.view===S.view));
+  document.querySelectorAll('#tmTabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.view));
+  if(S.view==='staff') renderStaff();
+  else if(S.view==='perf') renderPerf();
+  else renderProdTeam();
+}
+function syncNav(){
+  const onTeam=document.getElementById('page-team').classList.contains('on');
+  document.querySelectorAll('.sb-item[data-page="team"]').forEach(x=>x.classList.toggle('on',onTeam&&(x.classList.contains('sb-sub2')?x.dataset.tview===S.view:S.view==='staff')));
+}
+function show(view){
+  if(view) S.view=view;
+  document.querySelectorAll('.sb-item[data-page]').forEach(x=>x.classList.remove('on'));
+  try{ curPage='team'; }catch(e){}
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='page-team'));
+  syncNav();
+  if(S.data) render(); else loadTeam();
+  const mc=document.querySelector('main.content'); if(mc&&mc.scrollTo) mc.scrollTo({top:0});
+  if(window.scrollTo) window.scrollTo(0,0);
+}
+
+/* ---------- 데이터 로드 ---------- */
+let inflight=null, lastLoad=0;
+function loadTeam(force){
+  if(inflight) return inflight;
+  if(!force&&Date.now()-lastLoad<4000) return Promise.resolve();
+  inflight=(async function(){
+    const need=el('tmNeed'), body=el('tmBody');
+    try{
+      if(typeof fetchSheetMatrix!=='function') throw new Error('대시보드 본체의 시트 로더(fetchSheetMatrix)를 찾지 못했습니다');
+      if(typeof authValid==='function'&&!authValid()) return;
+      const data=parse(await fetchSheetMatrix(TM_SHEET));
+      if(!data.bans.length&&!data.blocks.length&&!data.daily.rows.length) throw new Error('인원·생산 구역을 찾지 못했습니다 — A열의 "3. 반별 근무인원", "2. 일일 실적" 같은 구역 제목을 확인해주세요');
+      S.data=data; lastLoad=Date.now();
+      need.style.display='none'; body.style.display='block';
+      el('tmMeta').textContent='시트 "'+TM_SHEET+'" · 인원현황 '+(data.staffDate||'-')+' · 생산실적 '+(data.prodDate||'-');
+      if(document.getElementById('page-team').classList.contains('on')) render();
+    }catch(e){
+      S.data=null; body.style.display='none'; need.style.display='block';
+      need.innerHTML='<b>"'+escH(TM_SHEET)+'" 시트를 읽지 못했습니다</b>'+escH(e.message)+'<br>구글 시트에 이 이름의 탭이 있는지 확인해주세요.';
+      el('tmMeta').textContent='';
+    }
+  })().then(function(){ inflight=null; }, function(){ inflight=null; });
+  return inflight;
+}
+
+/* ---------- 화면 붙이기 ---------- */
+const TEMPLATE=`
+<div class="wrap">
+  <div class="card head">
+    <div>
+      <h1>생산팀 일일현황</h1>
+      <p class="sub" id="tmMeta">구글 시트를 읽는 중…</p>
+      <div class="tm-tabs" id="tmTabs">${VIEWS.map(x=>'<button data-v="'+x.v+'">'+x.label+'</button>').join('')}</div>
+    </div>
+    <span class="badge">상단 기준월과 무관 · 시트 작성 일자 기준</span>
+  </div>
+  <div class="sheet-msg" id="tmNeed" style="display:none"></div>
+  <div id="tmBody" style="display:none">
+    <div class="tm-view" data-view="staff">
+      <h2 class="sec" style="margin:4px 0 12px">인원 현황 <span class="tm-date" id="tmStaffDate"></span></h2>
+      <div class="kpis" id="tmStaffKpis"></div>
+      <div class="grid-2-even">
+        <div class="card"><h2 class="sec">반별 근무인원 <span class="hint">— 출근율 = 근무인원 ÷ 총원</span></h2>
+          <div class="tbl-scroll free"><table id="tmBanTbl"></table></div></div>
+        <div class="card"><h2 class="sec">반별 근무 · 결원 구성</h2>
+          <div class="chart-box"><canvas id="tmBanChart"></canvas></div></div>
+      </div>
+      <div class="card"><h2 class="sec">반별 근무시간 (전일) <span class="hint">— 구간 = 출근~퇴근 (휴게 포함), 자정을 넘기면 익일로 계산</span></h2>
+        <div class="grid-2-even">
+          <div class="tbl-scroll free"><table id="tmHourTbl" class="tm-grp"></table></div>
+          <div class="tl" id="tmTimeline"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tm-view" data-view="perf">
+      <h2 class="sec" style="margin:4px 0 12px">반별 생산성 <span class="tm-date" id="tmPerfDate"></span> <span class="hint">— 생산성 = 생산량 ÷ 시간</span></h2>
+      <div id="tmPerfBody">
+        <div class="kpis" id="tmPerfKpis"></div>
+        <div class="grid-2">
+          <div class="card"><h2 class="sec">반별 생산성 비교 <span class="hint">— 파랑 가공 · 주황 포장</span></h2>
+            <div class="chart-box"><canvas id="tmPerfRank"></canvas></div></div>
+          <div class="card"><h2 class="sec">반 × 요일 생산성 <span class="hint">— 진할수록 높음 · 칸에 마우스를 올리면 생산량·시간</span></h2>
+            <div class="tbl-scroll free"><table id="tmPerfTbl"></table></div></div>
+        </div>
+        <div class="card"><h2 class="sec">일별 · 반별 생산량 대비 그래프 <span class="hint">— 막대 생산량·시간, 선 생산성(오른쪽 축)</span></h2>
+          <div class="mini-grid" id="tmMini"></div></div>
+      </div>
+    </div>
+
+    <div class="tm-view" data-view="prod">
+      <h2 class="sec" style="margin:4px 0 12px">생산실적 <span class="tm-date" id="tmProdDate"></span> <span class="hint">— 단위: 톤</span></h2>
+      <div class="kpis" id="tmProdKpis"></div>
+      <div class="grid-2-even">
+        <div class="card"><h2 class="sec">일일 실적 <span class="hint">— 가동률 = 실적 ÷ CAPA</span></h2>
+          <div class="tbl-scroll free"><table id="tmDailyTbl"></table></div></div>
+        <div class="card"><h2 class="sec">품목별 계획 · 실적 · CAPA</h2>
+          <div class="chart-box"><canvas id="tmDailyChart"></canvas></div></div>
+      </div>
+      <div class="grid-2-even">
+        <div class="card"><h2 class="sec">주간 생산량</h2>
+          <div class="chart-box"><canvas id="tmWeekChart"></canvas></div></div>
+        <div class="card"><h2 class="sec">주간 생산량 표</h2>
+          <div class="tbl-scroll free"><table id="tmWeekTbl"></table></div></div>
+      </div>
+      <div class="card"><h2 class="sec">월간 생산 진척율 <span class="hint">— <b id="tmCumLabel">누계</b> 기준 · 실행계획(3개월 실행계획) / 경영계획</span></h2>
+        <div class="prog-grid" id="tmProgCards"></div></div>
+      <div class="grid-2">
+        <div class="card"><h2 class="sec">주차별 실행계획 대비 실적 <span class="hint">— 전 품목 합계</span></h2>
+          <div class="chart-box"><canvas id="tmMonthChart"></canvas></div></div>
+        <div class="card"><h2 class="sec">월간 진척 상세</h2>
+          <div class="tbl-scroll free"><table id="tmMonthTbl" class="tm-grp"></table></div></div>
+      </div>
+      <div class="card"><h2 class="sec">ALL 시리즈 생산량</h2>
+        <div class="grid-2-even">
+          <div><h2 class="sec" style="font-size:.86rem">주간</h2><div class="tbl-scroll free"><table id="tmAllWeek"></table></div></div>
+          <div><h2 class="sec" style="font-size:.86rem">월간 (주차별)</h2><div class="tbl-scroll free"><table id="tmAllMonth"></table></div></div>
+        </div>
+        <h2 class="sec" style="font-size:.86rem;margin-top:18px">연간 (월별)</h2>
+        <div class="chart-box"><canvas id="tmAllYearChart"></canvas></div>
+        <div class="tbl-scroll free" style="margin-top:12px"><table id="tmAllYear"></table></div>
+        <div id="tmAllProdWrap" style="display:none;margin-top:18px"><h2 class="sec" style="font-size:.86rem">ALL 시리즈 대상 제품</h2>
+          <div class="tbl-scroll free"><table id="tmAllProducts" class="prod-list"></table></div></div>
+      </div>
+    </div>
+  </div>
+</div>`;
+function mount(){
+  const nav=document.querySelector('.sb-nav');
+  const mk=(cls,html,view)=>{ const d=document.createElement('div'); d.className='sb-item '+cls; d.dataset.page='team'; d.dataset.tview=view; d.innerHTML=html; d.onclick=()=>show(view); return d; };
+  const items=[mk('sb-sub','<span class="ic">🏭</span>생산팀 일일현황','staff')].concat(VIEWS.map(x=>mk('sb-sub2',x.label,x.v)));
+  if(nav){
+    const mat=[...nav.querySelectorAll('.sb-group')].find(g=>g.textContent.trim()==='자재관리');
+    items.forEach(it=>{ if(mat) nav.insertBefore(it,mat); else nav.appendChild(it); });
+  }
+  const page=document.createElement('div');
+  page.className='page pg-prod pg-team'; page.id='page-team'; page.innerHTML=TEMPLATE;
+  (document.querySelector('main.content')||document.body).appendChild(page);
+  el('tmTabs').addEventListener('click',e=>{ const b=e.target.closest('button[data-v]'); if(b){ S.view=b.dataset.v; syncNav(); render(); } });
+}
+mount();
+/* 첫 로딩·"시트 새로고침"에 함께 실려 오도록 연결 */
+if(typeof loadAll==='function'){ const orig=loadAll; loadAll=async function(){ const r=await orig.apply(this,arguments); await loadTeam(true); return r; }; }
+(function(){ const kick=function(){ const app=document.getElementById('app'); if(!app||app.style.display!=='none') loadTeam(); };
+  if(document.readyState==='complete') setTimeout(kick,0); else window.addEventListener('load',function(){ setTimeout(kick,0); }); })();
+window.__tm={S,parse,render,show,loadTeam};
+})();
+</script>
+
 <script>
 /* MOBILE PATCH: 기존 메뉴/데이터 처리에는 손대지 않고 접기 동작만 추가합니다. */
 (function initMobileMenu(){
