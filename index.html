@@ -4603,6 +4603,476 @@ window.__tm={S,parse,render,show,loadTeam};
 })();
 </script>
 
+<!-- ===== 시장 · 뉴스 (시장 인사이트 / 축산 수급현황) ===== -->
+<style>
+.pg-mkt{--ink:#111827;--ink2:#374151;--muted:#6B7280;--muted2:#9CA3AF;--line:#E5E7EB;--bg2:#F3F4F6;
+  --violet:#6D4AE0;--violet-soft:#EFEBFD;--pink:#E0306B;--teal:#0E9F6E;--up:#E5484D;--down:#2F6BDF;
+  --navy:#2E4271;--navy2:#3B5089;--navy-ink:#DCE5FA;--cell-blue:#2B5CD8;--cell-red:#E5484D;
+  padding:22px 26px 70px;color:var(--ink);}
+.pg-mkt .mk-wrap{max-width:1500px;margin:0 auto;}
+.pg-mkt .mk-top{font-size:.8rem;color:var(--ink2);margin-bottom:10px;}
+.pg-mkt .mk-top b{font-weight:800;}
+.pg-mkt .mk-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:6px 0 14px;}
+.pg-mkt .mk-head h1{margin:0;font-size:1.55rem;font-weight:800;letter-spacing:-.03em;}
+.pg-mkt .mk-cnt{display:flex;gap:12px;font-size:.84rem;color:var(--muted);align-items:baseline;}
+.pg-mkt .mk-cnt b{color:var(--ink);font-weight:800;margin-right:4px;}
+.pg-mkt .mk-head .rule{flex:1;height:1px;background:var(--line);min-width:40px;}
+.pg-mkt .mk-btn{border:0;background:var(--violet);color:#fff;font:inherit;font-weight:700;font-size:.82rem;padding:9px 16px;border-radius:10px;cursor:pointer;text-decoration:none;display:inline-flex;gap:6px;align-items:center;}
+.pg-mkt .mk-btn.ghost{background:#fff;color:var(--ink2);border:1px solid var(--line);}
+.pg-mkt .mk-seg{display:inline-flex;gap:4px;background:var(--bg2);padding:4px;border-radius:10px;}
+.pg-mkt .mk-seg button{border:0;background:transparent;font:inherit;font-size:.82rem;font-weight:600;color:var(--muted);padding:7px 14px;border-radius:8px;cursor:pointer;}
+.pg-mkt .mk-seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(17,24,39,.08);}
+.pg-mkt .mk-need{background:#fff;border:1.5px dashed var(--line);border-radius:14px;padding:36px 22px;text-align:center;color:var(--muted);font-size:.86rem;line-height:1.7;margin-bottom:16px;}
+.pg-mkt .mk-need b{display:block;color:var(--ink);margin-bottom:6px;}
+.pg-mkt .mk-view{display:none;} .pg-mkt .mk-view.on{display:block;}
+
+/* 인사이트 카드 (캐러셀) */
+.pg-mkt .ins-rail{display:grid;grid-auto-flow:column;grid-auto-columns:calc(50% - 8px);gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:2px;}
+.pg-mkt .ins-rail::-webkit-scrollbar{display:none;}
+.pg-mkt .ins{scroll-snap-align:start;background:#E9ECF1;border:1px solid #DDE1E7;border-radius:14px;padding:26px 32px 20px;display:flex;flex-direction:column;min-height:236px;}
+.pg-mkt .ins .lb{font-size:.84rem;font-weight:800;color:var(--violet);}
+.pg-mkt .ins .lb small{font-weight:500;color:var(--muted);margin-left:6px;font-size:.78rem;}
+.pg-mkt .ins h3{margin:14px 0 0;font-size:1.5rem;line-height:1.42;font-weight:800;letter-spacing:-.03em;color:var(--ink);}
+.pg-mkt .ins h3 .hl{color:var(--pink);} .pg-mkt .ins h3 .kw{color:var(--teal);}
+.pg-mkt .ins h3 .u{color:var(--up);} .pg-mkt .ins h3 .d{color:var(--down);}
+.pg-mkt .ins .foot{margin-top:auto;padding-top:16px;border-top:1px dashed #CBD1DA;display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.pg-mkt .ins .pills{display:flex;gap:10px;flex-wrap:wrap;}
+.pg-mkt .pill{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:.72rem;color:var(--muted);font-weight:600;}
+.pg-mkt .pill span{display:inline-block;padding:4px 10px;border-radius:999px;font-size:.76rem;font-weight:800;color:#fff;background:#9CA3AF;white-space:nowrap;}
+.pg-mkt .pill span.u{background:var(--up);} .pg-mkt .pill span.d{background:var(--down);} .pg-mkt .pill span.s{background:#fff;color:var(--ink2);}
+.pg-mkt .ins .more{font-size:.8rem;font-weight:700;color:var(--violet);cursor:pointer;background:none;border:0;font-family:inherit;padding:4px 0;}
+.pg-mkt .ins .more:hover{text-decoration:underline;}
+.pg-mkt .ins .rel{margin-top:12px;font-size:.8rem;color:var(--ink2);line-height:1.55;}
+.pg-mkt .ins .rel a{color:var(--ink2);text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pg-mkt .ins .rel a:before{content:'·';color:var(--violet);font-weight:900;margin-right:6px;}
+.pg-mkt .ins .rel a:hover{color:var(--violet);}
+.pg-mkt .rail-nav{display:flex;align-items:center;justify-content:center;gap:12px;margin:14px 0 24px;}
+.pg-mkt .rail-nav button.arr{border:0;background:none;font-size:1.2rem;color:var(--muted);cursor:pointer;padding:2px 8px;}
+.pg-mkt .dots{display:flex;gap:6px;}
+.pg-mkt .dots i{width:6px;height:6px;border-radius:3px;background:#D1D5DB;cursor:pointer;transition:width .2s;}
+.pg-mkt .dots i.on{width:20px;background:var(--violet);}
+
+/* 뉴스 */
+.pg-mkt .news{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 18px 20px;box-shadow:0 1px 3px rgba(17,24,39,.05);}
+.pg-mkt .news-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.pg-mkt .ntab{border:0;background:var(--bg2);color:var(--ink2);font:inherit;font-size:.82rem;font-weight:700;padding:8px 13px;border-radius:9px;cursor:pointer;}
+.pg-mkt .ntab i{font-style:normal;color:var(--muted2);font-weight:600;margin-left:5px;}
+.pg-mkt .ntab.on{background:#111827;color:#fff;} .pg-mkt .ntab.on i{color:#9CA3AF;}
+.pg-mkt .nfilter{display:inline-flex;align-items:center;gap:6px;background:var(--violet-soft);color:var(--violet);font-size:.78rem;font-weight:700;padding:6px 10px;border-radius:999px;}
+.pg-mkt .nfilter button{border:0;background:none;color:var(--violet);cursor:pointer;font-size:.9rem;line-height:1;padding:0 2px;}
+.pg-mkt .news-bar .sp{flex:1;}
+.pg-mkt .news-bar input{border:1px solid var(--line);border-radius:9px;padding:7px 11px;font:inherit;font-size:.8rem;width:180px;}
+.pg-mkt .nlink{background:none;border:0;font:inherit;font-size:.82rem;font-weight:700;color:var(--ink2);cursor:pointer;}
+.pg-mkt .nrow{position:relative;}
+.pg-mkt .nrail{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 32px)/3);gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;padding:2px 2px 4px;}
+.pg-mkt .nrail::-webkit-scrollbar{display:none;}
+.pg-mkt .ngrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}
+.pg-mkt .ncard{scroll-snap-align:start;border:1px solid var(--line);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit;background:#fff;min-height:150px;transition:border-color .15s,box-shadow .15s;}
+.pg-mkt .ncard:hover{border-color:#C4B5FD;box-shadow:0 4px 14px rgba(109,74,224,.10);}
+.pg-mkt .ncard .c{font-size:.74rem;font-weight:800;color:var(--violet);}
+.pg-mkt .ncard .t{font-size:.98rem;font-weight:800;line-height:1.42;letter-spacing:-.02em;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.pg-mkt .ncard .d{font-size:.8rem;color:var(--muted);line-height:1.6;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.pg-mkt .ncard .f{margin-top:auto;font-size:.74rem;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.pg-mkt .ncard .f b{color:var(--ink2);font-weight:700;}
+.pg-mkt .ncard .f .k{color:var(--teal);font-weight:600;}
+.pg-mkt .ncard .f .k:before{content:'●';font-size:.5rem;margin-right:3px;vertical-align:middle;}
+.pg-mkt .nrow .side{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:#fff;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.08);font-size:1rem;color:var(--ink2);z-index:2;}
+.pg-mkt .nrow .side.l{left:-14px;} .pg-mkt .nrow .side.r{right:-14px;}
+.pg-mkt .nmore{display:block;margin:16px auto 0;}
+.pg-mkt .nempty{padding:30px;text-align:center;color:var(--muted);font-size:.85rem;}
+.pg-mkt .mk-src{font-size:.74rem;color:var(--muted);margin-top:10px;}
+.pg-mkt .mk-src a{color:var(--muted);}
+
+/* 축산 수급현황 (KAPE 형식) */
+.pg-mkt .sp-top{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:18px;margin-bottom:20px;}
+.pg-mkt .sp-top h4{margin:0 0 10px;font-size:.95rem;font-weight:800;}
+.pg-mkt .wcard{background:#fff;border:1px solid #D9DEF0;border-radius:12px;overflow:hidden;display:flex;min-height:168px;}
+.pg-mkt .wcard>div{flex:1;padding:16px 18px;display:flex;flex-direction:column;}
+.pg-mkt .wcard>div+div{border-left:1px dashed #D9DEF0;}
+.pg-mkt .wcard .wt{font-size:.88rem;font-weight:700;color:var(--ink2);display:flex;align-items:center;gap:6px;}
+.pg-mkt .wcard .ws{font-size:.78rem;color:var(--ink2);margin-top:8px;}
+.pg-mkt .wcard .wv{font-size:1.6rem;font-weight:800;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums;}
+.pg-mkt .wcard .wv i{font-style:normal;font-size:.78rem;font-weight:500;color:var(--muted2);margin-left:4px;}
+.pg-mkt .wcard .wv.red{color:var(--cell-red);} .pg-mkt .wcard .wv.blue{color:var(--cell-blue);}
+.pg-mkt .wcard .wc{font-size:.76rem;color:var(--muted);margin-top:10px;}
+.pg-mkt .wcard .wc b{font-weight:600;margin-right:8px;}
+.pg-mkt .wcard .wf{margin-top:auto;padding-top:10px;font-size:.7rem;color:var(--muted2);line-height:1.5;}
+.pg-mkt .u{color:var(--up);} .pg-mkt .d{color:var(--down);}
+.pg-mkt table.sig{width:100%;border-collapse:separate;border-spacing:0;background:#fff;border:1px solid #D9DEF0;border-radius:12px;overflow:hidden;font-size:.76rem;}
+.pg-mkt table.sig th{background:#F4F6FB;color:var(--muted);font-weight:600;padding:8px 6px;border-bottom:1px solid #E3E7F2;}
+.pg-mkt table.sig td{text-align:center;padding:9px 6px;border-top:1px dashed #E3E7F2;}
+.pg-mkt table.sig td.nm{font-weight:800;color:var(--navy);width:56px;}
+.pg-mkt .lamp{display:inline-flex;flex-direction:column;align-items:center;gap:4px;}
+.pg-mkt .lamp small{font-size:.68rem;color:var(--ink2);}
+.pg-mkt .lamp b{display:flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;font-size:.66rem;line-height:1.2;color:#fff;font-weight:700;background:#9CA3AF;text-align:center;}
+.pg-mkt .lamp b.green{background:#1FA65A;} .pg-mkt .lamp b.yellow{background:#F5E642;color:#4B4B00;} .pg-mkt .lamp b.red,.pg-mkt .lamp b.orange{background:#E5484D;}
+.pg-mkt .sp-tabs{display:flex;gap:6px;background:#EEF1F8;padding:6px;border-radius:12px;margin-bottom:16px;}
+.pg-mkt .sp-tabs button{flex:1;border:0;background:transparent;font:inherit;font-size:.95rem;font-weight:700;color:#8A94AD;padding:10px;border-radius:9px;cursor:pointer;}
+.pg-mkt .sp-tabs button.on{background:#5B6FA8;color:#fff;box-shadow:inset 0 0 0 2px #3E5290;}
+.pg-mkt .sp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(500px,1fr));gap:18px;}
+.pg-mkt .kbox{background:#fff;border:1px solid #D9DEF0;border-radius:12px;overflow:hidden;}
+.pg-mkt .kbox-h{display:flex;align-items:center;gap:10px;padding:12px 16px;}
+.pg-mkt .kbox-h h5{margin:0;font-size:1.08rem;font-weight:800;letter-spacing:-.02em;}
+.pg-mkt .kbox-h .src{margin-left:auto;font-size:.68rem;color:var(--muted2);}
+.pg-mkt .kbox-b{background:var(--navy);padding:10px;}
+.pg-mkt .krow{display:grid;gap:6px;}
+.pg-mkt .krow.first{grid-template-columns:1fr 1.1fr 1.1fr;}
+.pg-mkt .krow .when{color:#fff;font-size:.86rem;font-weight:600;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;line-height:1.4;}
+.pg-mkt .krow .when small{color:var(--navy-ink);font-size:.72rem;font-weight:500;}
+.pg-mkt .kcell{background:#fff;border-radius:8px;padding:10px 8px 6px;text-align:center;min-width:0;}
+.pg-mkt .kcell .l{font-size:.74rem;font-weight:700;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pg-mkt .kcell .v{font-size:1.55rem;font-weight:800;letter-spacing:-.02em;color:var(--cell-blue);line-height:1.25;font-variant-numeric:tabular-nums;}
+.pg-mkt .kcell .v.red{color:var(--cell-red);}
+.pg-mkt .kcell .un{font-size:.7rem;color:var(--muted2);}
+.pg-mkt .kcell .spark{height:34px;margin-top:4px;position:relative;width:100%;}
+.pg-mkt .kcell .spark canvas{max-width:100%;}
+.pg-mkt table.kcmp{width:100%;border-collapse:collapse;margin-top:8px;font-size:.74rem;font-variant-numeric:tabular-nums;}
+.pg-mkt table.kcmp td{padding:8px 6px;border-top:1px dashed rgba(255,255,255,.18);}
+.pg-mkt table.kcmp td.lab{color:#fff;font-weight:700;width:33%;line-height:1.35;}
+.pg-mkt table.kcmp td.lab small{display:block;color:var(--navy-ink);font-weight:500;font-size:.68rem;}
+.pg-mkt table.kcmp td.val{background:#fff;}
+.pg-mkt table.kcmp tr:first-child td.val:nth-child(2){border-top-left-radius:6px;}
+.pg-mkt table.kcmp tr:first-child td.val:last-child{border-top-right-radius:6px;}
+.pg-mkt table.kcmp tr:last-child td.val:nth-child(2){border-bottom-left-radius:6px;}
+.pg-mkt table.kcmp tr:last-child td.val:last-child{border-bottom-right-radius:6px;}
+.pg-mkt table.kcmp td.val{border-top:1px dashed #E3E7F2;}
+.pg-mkt .chg{display:flex;gap:6px;justify-content:space-between;white-space:nowrap;}
+.pg-mkt .chg .v0{color:var(--ink2);}
+.pg-mkt .chg.u .p,.pg-mkt .chg.u .s{color:var(--up);} .pg-mkt .chg.d .p,.pg-mkt .chg.d .s{color:var(--down);}
+.pg-mkt .chg .p:before{content:'';}
+.pg-mkt .chg.u .p:before{content:'▲ ';font-size:.62rem;} .pg-mkt .chg.d .p:before{content:'▼ ';font-size:.62rem;}
+.pg-mkt .chg.na{justify-content:center;color:var(--muted2);}
+@media (max-width:1200px){ .pg-mkt .sp-top{grid-template-columns:1fr 1fr;} .pg-mkt .sp-top>div:first-child{grid-column:1/-1;} }
+@media (max-width:800px){
+  .pg-mkt{padding:16px 12px 40px;}
+  .pg-mkt .mk-head h1{font-size:1.2rem;}
+  .pg-mkt .ins-rail{grid-auto-columns:100%;}
+  .pg-mkt .ins{padding:20px 20px 16px;min-height:0;}
+  .pg-mkt .ins h3{font-size:1.15rem;}
+  .pg-mkt .nrail{grid-auto-columns:86%;}
+  .pg-mkt .ngrid{grid-template-columns:1fr;}
+  .pg-mkt .nrow .side{display:none;}
+  .pg-mkt .news-bar input{width:100%;}
+  .pg-mkt .sp-top,.pg-mkt .sp-grid{grid-template-columns:1fr;}
+  .pg-mkt .wcard{flex-direction:column;} .pg-mkt .wcard>div+div{border-left:0;border-top:1px dashed #D9DEF0;}
+  .pg-mkt .sp-tabs button{font-size:.82rem;padding:9px 4px;}
+  .pg-mkt .kcell .v{font-size:1.25rem;}
+}
+</style>
+<script>
+(function(){
+"use strict";
+/* 데이터: GitHub Actions(scripts/collect_market.py)가 3시간마다 갱신하는 data/*.json */
+const RAW='https://raw.githubusercontent.com/daesangdeli/dashboard/main/data/';
+const SPECIES=[{k:'돼지',ic:'🐖'},{k:'한우',ic:'🐄'},{k:'육계',ic:'🐔'},{k:'계란',ic:'🥚'}];
+const NEWS_CATS=['축산','육가공','식품업계','경쟁사'];
+const S={market:null,news:null,view:'insight',species:'돼지',ncat:'all',nfilter:null,nq:'',nall:false,nlimit:24,charts:{},err:{}};
+const el=id=>document.getElementById(id);
+const escH=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- 공용 ---------- */
+async function getJSON(name){
+  const tries=[RAW+name+'?t='+Date.now(),'data/'+name+'?t='+Date.now()];
+  let last;
+  for(const u of tries){
+    try{ const r=await fetch(u,{cache:'no-store'}); if(!r.ok) throw new Error('HTTP '+r.status); return await r.json(); }
+    catch(e){ last=e; }
+  }
+  throw last;
+}
+function shortCmp(l){ // "전주 동요일" → 전주, "평년 동월 일평균" → 평년
+  const m=String(l||'').match(/^(전일|전주|전월|전분기|전년|평년|전기)/); return m?m[1]:String(l||'').split(' ')[0];
+}
+function sign(dir){ return dir==='up'?'▲':dir==='down'?'▼':''; }
+function ago(ts){
+  const d=new Date(ts), diff=(Date.now()-d)/60000;
+  if(diff<60) return Math.max(1,Math.round(diff))+'분 전';
+  if(diff<60*24) return Math.round(diff/60)+'시간 전';
+  return d.getFullYear()+'.'+String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0');
+}
+function updLabel(iso){ if(!iso) return '-'; const d=new Date(iso); return (d.getMonth()+1)+'/'+d.getDate()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
+function box(sp,title){ return S.market&&S.market.boxes.find(b=>b.species===sp&&b.title===title); }
+
+/* ---------- 인사이트 카드 (수급 데이터 → 문장) ---------- */
+// t: 표 제목, i: 대표 값 위치, re: 관련 뉴스 찾는 제목 단어
+const INSIGHTS=[
+  {sp:'돼지',t:'경락가격',i:0,re:/돼지|돈육|한돈|돈가|양돈|도매가|지육/},
+  {sp:'돼지',t:'소비자가격',i:0,re:/삼겹|목살|돼지고기|돈육|한돈|소비자가/},
+  {sp:'돼지',t:'수입가격 및 현황',i:1,re:/수입|관세|돼지고기|돈육/},
+  {sp:'돼지',t:'재고현황',i:0,re:/재고|냉동|돼지고기|돈육/},
+  {sp:'한우',t:'경락가격',i:1,re:/한우|소고기|쇠고기|육우/},
+  {sp:'육계',t:'도매가격',i:0,re:/닭|육계|치킨|가금/},
+  {sp:'계란',t:'산지가격',i:0,re:/계란|달걀|산란계/},
+];
+function relNews(re){ return (S.news?S.news.items:[]).filter(n=>re.test(n.title)); }
+function insightCards(){
+  const out=[];
+  INSIGHTS.forEach(spec=>{
+    const b=box(spec.sp,spec.t); if(!b) return;
+    const m=b.mains[spec.i]||b.mains[0]; if(!m||!m.value) return;
+    const ci=b.mains.indexOf(m);
+    const cmps=b.comps.map(c=>({lb:shortCmp(c.label),full:c.label,period:c.period,x:c.cells[ci]})).filter(c=>c.x&&c.x.pct);
+    const first=cmps[0], yoy=cmps.find(c=>c.lb==='전년');
+    const phr=c=>'<span class="'+(c.x.dir==='up'?'u':'d')+'">'+escH(c.x.pct)+(c.x.dir==='up'?' 올랐':' 내렸')+'</span>';
+    let line2='';
+    if(first) line2=escH(first.lb)+'보다 '+phr(first)+(yoy&&yoy!==first?'고, 전년보다 '+phr(yoy):'')+'다.';
+    out.push({lb:b.species+' · '+b.title,sub:m.label+' · '+b.date,
+      h:'<span class="kw">'+escH(m.label)+'</span> '+escH(b.title.replace(' 및 현황',''))+' <span class="hl">'+escH(m.value)+escH(m.unit)+'</span>.<br>'+line2,
+      pills:cmps.slice(0,4).map(c=>({lb:c.lb,v:sign(c.x.dir)+' '+c.x.pct,cls:c.x.dir==='up'?'u':c.x.dir==='down'?'d':'s',tip:c.full+' '+c.period+' '+c.x.v})),
+      re:spec.re,kwLabel:b.species+' '+b.title});
+  });
+  // 환율 · 유가 (수입 원료육 원가)
+  (S.market&&S.market.fx||[]).forEach(f=>{
+    if(!f.change) return;
+    const isFx=/환율/.test(f.title);
+    out.push({lb:(isFx?'환율':'유가')+' · 원가 영향',sub:f.asof+' · '+f.source,
+      h:escH(f.title)+' <span class="hl">'+escH(f.value)+escH(f.unit)+'</span>.<br>'+escH(f.change.label)+' <span class="'+(f.change.dir==='up'?'u':'d')+'">'+escH(f.change.pct)+(f.change.dir==='up'?' 상승':' 하락')+'</span>'+(isFx?' — <span class="kw">수입 원료육</span> 원가에 영향':''),
+      pills:[{lb:f.change.label.replace(' 대비',''),v:sign(f.change.dir)+' '+f.change.pct,cls:f.change.dir==='up'?'u':'d',tip:f.change.diff}],
+      re:isFx?/환율|달러|원화/:/유가|국제유가|두바이/,kwLabel:isFx?'환율':'유가'});
+  });
+  // 수급 신호등 중 주의 신호
+  (S.market&&S.market.signals||[]).forEach(s=>s.items.filter(x=>x.color&&x.color!=='green').forEach(x=>{
+    out.push({lb:'수급 신호등 · '+s.name,sub:x.term+' '+x.year,
+      h:escH(s.name)+' '+escH(x.term)+'('+escH(x.year)+') 수급 전망은<br><span class="hl">'+escH(x.status)+'</span> 신호.',
+      pills:s.items.map(y=>({lb:y.term,v:y.status,cls:y.color==='green'?'s':'u',tip:y.year})),
+      re:new RegExp(s.name==='한우'?'한우|소고기|쇠고기':'돼지|돈육|한돈'),kwLabel:s.name+' 수급'});
+  }));
+  return out;
+}
+let railIdx=0;
+function renderInsights(){
+  const cards=insightCards();
+  el('mkInsRail').innerHTML=cards.length?cards.map((c,i)=>{
+    const rel=relNews(c.re);
+    return '<div class="ins" data-i="'+i+'"><div class="lb">'+escH(c.lb)+'<small>'+escH(c.sub)+'</small></div><h3>'+c.h+'</h3>'+
+      (rel.length?'<div class="rel">'+rel.slice(0,2).map(n=>'<a href="'+escH(n.link)+'" target="_blank" rel="noopener">'+escH(n.title)+'</a>').join('')+'</div>':'')+
+      '<div class="foot"><div class="pills">'+c.pills.map(p=>'<div class="pill" title="'+escH(p.tip||'')+'">'+escH(p.lb)+'<span class="'+p.cls+'">'+escH(p.v)+'</span></div>').join('')+'</div>'+
+      '<button class="more" data-act="rel" data-i="'+i+'">관련 뉴스 '+rel.length+'건 ↗</button></div></div>';
+  }).join(''):'<div class="mk-need" style="grid-column:1/-1"><b>수급 데이터가 아직 없습니다</b>GitHub Actions 첫 수집이 끝나면 표시됩니다.</div>';
+  S.cards=cards;
+  const pages=Math.max(1,Math.ceil(cards.length/2));
+  el('mkDots').innerHTML=Array.from({length:pages},(_,i)=>'<i data-act="dot" data-v="'+i+'"'+(i===0?' class="on"':'')+'></i>').join('');
+  railIdx=0;
+}
+function railGo(i){
+  const r=el('mkInsRail'), n=el('mkDots').children.length; railIdx=(i+n)%n;
+  const c=r.children[railIdx*(window.matchMedia('(max-width:800px)').matches?1:2)];
+  if(c) r.scrollTo({left:c.offsetLeft-r.offsetLeft,behavior:'smooth'});
+  [...el('mkDots').children].forEach((d,k)=>d.classList.toggle('on',k===railIdx));
+}
+
+/* ---------- 뉴스 ---------- */
+function newsList(){
+  let L=S.news?S.news.items:[];
+  if(S.ncat!=='all') L=L.filter(n=>n.cats.indexOf(S.ncat)>=0);
+  if(S.nfilter) L=L.filter(n=>S.nfilter.re.test(n.title));
+  const q=S.nq.trim().toLowerCase();
+  if(q) L=L.filter(n=>(n.title+' '+(n.desc||'')+' '+n.source).toLowerCase().indexOf(q)>=0);
+  return L;
+}
+function ncard(n){
+  return '<a class="ncard" href="'+escH(n.link)+'" target="_blank" rel="noopener"><div class="c">'+escH(n.cats.join(' · '))+'</div>'+
+    '<div class="t">'+escH(n.title)+'</div>'+(n.desc?'<div class="d">'+escH(n.desc)+'</div>':'')+
+    '<div class="f"><b>'+escH(n.source||'')+'</b><span>'+escH(ago(n.ts))+'</span>'+n.kw.slice(0,2).map(k=>'<span class="k">'+escH(k)+'</span>').join('')+'</div></a>';
+}
+function renderNews(){
+  const all=S.news?S.news.items:[];
+  const cnt=c=>c==='all'?all.length:all.filter(n=>n.cats.indexOf(c)>=0).length;
+  el('mkNewsTabs').innerHTML=['all'].concat(NEWS_CATS).map(c=>'<button class="ntab'+(S.ncat===c?' on':'')+'" data-act="ncat" data-v="'+c+'">'+(c==='all'?'전체':c)+'<i>'+cnt(c)+'</i></button>').join('')+
+    (S.nfilter?'<span class="nfilter">'+escH(S.nfilter.label)+' 관련<button data-act="nclear" title="필터 해제">×</button></span>':'');
+  const L=newsList();
+  el('mkNewsAll').textContent=S.nall?'접기':'모두 보기';
+  if(!L.length){ el('mkNewsBody').innerHTML='<div class="nempty">조건에 맞는 기사가 없습니다.</div>'; return; }
+  if(S.nall){
+    el('mkNewsBody').innerHTML='<div class="ngrid">'+L.slice(0,S.nlimit).map(ncard).join('')+'</div>'+
+      (L.length>S.nlimit?'<button class="mk-btn ghost nmore" data-act="nmore">더 보기 ('+(L.length-S.nlimit)+'건)</button>':'');
+  }else{
+    el('mkNewsBody').innerHTML='<div class="nrow"><button class="side l" data-act="nscroll" data-v="-1" aria-label="이전">‹</button><div class="nrail" id="mkNRail">'+L.slice(0,30).map(ncard).join('')+'</div><button class="side r" data-act="nscroll" data-v="1" aria-label="다음">›</button></div>';
+  }
+  const nw=S.news;
+  el('mkNewsSrc').innerHTML='뉴스 '+(nw&&nw.provider==='naver'?'네이버 뉴스 검색':'구글 뉴스')+' · 최근 7일 · 갱신 '+escH(updLabel(nw&&nw.updated))+' · 기사를 누르면 원문이 새 창으로 열립니다.';
+}
+
+/* ---------- 축산 수급현황 ---------- */
+function fmtPeriod(p,type){
+  p=String(p||'').trim();
+  if(type==='day'){ const m=p.match(/^\d{4}-(\d{2})-(\d{2})/); return m?(+m[1])+'.'+(+m[2]):p; }
+  if(type==='month'){ const m=p.match(/^(\d{4})-(\d{2})/); return m?m[1].slice(2)+'.'+m[2]:p; }
+  if(type==='quarter'){ const m=p.match(/^(\d{4})-(\d)/); return m?m[1].slice(2)+'년 '+m[2]+'Q':p; }
+  if(type==='week'){ const m=p.match(/^(\d{4})-(\d+)/); return m?m[2]+'주':p; }
+  return p;
+}
+function cmpCell(x){
+  if(!x||!x.v) return '<div class="chg na">-</div>';
+  const cls=x.dir==='up'?'u':x.dir==='down'?'d':'';
+  return '<div class="chg '+cls+'"><span class="v0">'+escH(x.v)+'</span><span class="p">'+escH(x.pct)+'</span><span class="s">'+escH(x.diff)+'</span></div>';
+}
+function renderSupplyTop(){
+  const M=S.market;
+  const sig=M.signals||[];
+  const terms=sig.length?sig[0].items.map(x=>x.term):['단기','중기','장기'];
+  el('mkSig').innerHTML=sig.length?'<table class="sig"><thead><tr><th>구분</th>'+terms.map(t=>'<th>'+escH(t)+'</th>').join('')+'</tr></thead><tbody>'+
+    sig.map(s=>'<tr><td class="nm">'+(s.name==='한우'?'🐄 ':s.name==='돼지'?'🐖 ':'')+escH(s.name)+'</td>'+s.items.map(x=>'<td><span class="lamp"><small>'+escH(x.year)+'</small><b class="'+escH(x.color)+'">'+escH(x.status).replace(/\s+/,'<br>')+'</b></span></td>').join('')+'</tr>').join('')+'</tbody></table>':'<div class="mk-need">신호등 정보 없음</div>';
+  const card=(arr,isFx)=>arr.length?'<div class="wcard">'+arr.map(f=>'<div><div class="wt">'+(isFx?(/환율/.test(f.title)?'🇺🇸 ':'🛢️ '):(f.title==='한우'?'🐄 ':'🐖 '))+escH(f.title)+'</div>'+
+      (f.sub?'<div class="ws">'+escH(f.sub)+'</div>':'')+
+      '<div class="wv'+(isFx?'':(f.title==='한우'?' red':' blue'))+'">'+escH(f.value)+'<i>'+escH(f.unit)+'</i></div>'+
+      (f.change?'<div class="wc">'+escH(f.change.label)+'<br><b class="'+(f.change.dir==='up'?'u':'d')+'">'+sign(f.change.dir)+' '+escH(f.change.pct)+'</b><b class="'+(f.change.dir==='up'?'u':'d')+'">'+escH(f.change.diff)+'</b></div>':'')+
+      '<div class="wf">'+escH(f.asof)+'<br>출처 : '+escH(f.source)+'</div></div>').join('')+'</div>':'<div class="mk-need">정보 없음</div>';
+  el('mkFx').innerHTML=card(M.fx||[],true);
+  el('mkRetail').innerHTML=card(M.retail||[],false);
+}
+function renderSupply(){
+  if(!S.market) return;
+  renderSupplyTop();
+  el('mkSpTabs').innerHTML=SPECIES.map(s=>'<button data-act="sp" data-v="'+s.k+'"'+(S.species===s.k?' class="on"':'')+'>'+s.ic+' '+s.k+'</button>').join('');
+  const B=S.market.boxes.filter(b=>b.species===S.species);
+  el('mkSpGrid').innerHTML=B.map((b,bi)=>{
+    const ncol=b.mains.length;
+    return '<div class="kbox"><div class="kbox-h"><h5>'+escH(b.title)+'</h5><span class="src">출처: '+escH(b.source)+'</span></div><div class="kbox-b">'+
+      '<div class="krow first" style="grid-template-columns:minmax(0,.8fr)'+' minmax(0,1.1fr)'.repeat(ncol)+'"><div class="when">'+escH(b.date)+'<small>기준</small></div>'+
+      b.mains.map((m,mi)=>'<div class="kcell"><div class="l" title="'+escH(m.label)+'">'+escH(m.label)+'</div><div class="v'+(m.hl==='red'?' red':'')+'">'+escH(m.value||'-')+'</div><div class="un">'+escH(m.unit)+'</div>'+
+        (b.series&&b.series.points&&b.series.points.length>1?'<div class="spark"><canvas id="mkSp_'+bi+'_'+mi+'"></canvas></div>':'')+'</div>').join('')+'</div>'+
+      '<table class="kcmp"><tbody>'+b.comps.map(c=>'<tr><td class="lab">'+escH(c.label)+'<small>'+escH(c.period?'('+c.period+')':'')+'</small></td>'+
+        b.mains.map((m,mi)=>'<td class="val">'+cmpCell(c.cells[mi])+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></div>';
+  }).join('')||'<div class="mk-need">이 축종의 수급 표가 없습니다.</div>';
+  if(typeof Chart==='undefined') return;
+  B.forEach((b,bi)=>{
+    const s=b.series; if(!s||!s.points||s.points.length<2) return;
+    b.mains.forEach((m,mi)=>{
+      const key='v'+(mi+1), id='mkSp_'+bi+'_'+mi;
+      const pts=s.points.filter(p=>p[key]!=null);
+      if(pts.length<2){ const c=el(id); if(c) c.parentNode.style.display='none'; return; }
+      const col=m.hl==='red'?'#E5484D':'#2B5CD8';
+      if(S.charts[id]) S.charts[id].destroy();
+      S.charts[id]=new Chart(el(id),{type:'line',
+        data:{labels:pts.map(p=>fmtPeriod(p.p,s.period)),datasets:[{data:pts.map(p=>p[key]),borderColor:col,backgroundColor:col,borderWidth:2,pointRadius:0,pointHoverRadius:4,tension:.3,fill:false}]},
+        options:{responsive:true,maintainAspectRatio:false,animation:false,plugins:{legend:{display:false},
+          tooltip:{displayColors:false,callbacks:{title:it=>it[0].label,label:it=>(s.names[mi]||m.label)+' '+Number(it.raw).toLocaleString('ko-KR')+' '+m.unit}}},
+          interaction:{mode:'index',intersect:false},scales:{x:{display:false},y:{display:false}}}});
+    });
+  });
+}
+
+/* ---------- 화면 ---------- */
+function render(){
+  document.querySelectorAll('#page-mkt .mk-view').forEach(v=>v.classList.toggle('on',v.dataset.view===S.view));
+  document.querySelectorAll('#mkViewTabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===S.view));
+  el('mkTitle').textContent=S.view==='insight'?'오늘의 시장 인사이트':'축산 수급현황';
+  const M=S.market, N=S.news;
+  const today=new Date().toDateString();
+  el('mkTop').innerHTML=N?'축산·식품·육가공 뉴스 <b>'+N.items.length+'</b>건 · 수급 표 <b>'+(M?M.boxes.length:0)+'</b>개를 모았어요 <span style="color:#9CA3AF">· 수급 갱신 '+escH(updLabel(M&&M.updated))+' · 뉴스 갱신 '+escH(updLabel(N&&N.updated))+'</span>':'';
+  el('mkCnt').innerHTML=N&&S.view==='insight'?'<span><b>전체</b>'+N.items.length+'</span><span>오늘 '+N.items.filter(n=>new Date(n.ts).toDateString()===today).length+'</span><span>3일 '+N.items.filter(n=>Date.now()-new Date(n.ts)<3*864e5).length+'</span>':'';
+  const errs=Object.keys(S.err).map(k=>k+': '+S.err[k]);
+  el('mkNeed').style.display=errs.length?'block':'none';
+  el('mkNeed').innerHTML=errs.length?'<b>일부 데이터를 불러오지 못했습니다</b>'+escH(errs.join(' / '))+'<br>GitHub 저장소 Actions 탭의 "시장·뉴스 데이터 수집"이 한 번 이상 성공해야 표시됩니다.':'';
+  if(S.view==='insight'){ if(M||N){ renderInsights(); renderNews(); } }
+  else renderSupply();
+}
+function syncNav(){
+  const on=el('page-mkt').classList.contains('on');
+  document.querySelectorAll('.sb-item[data-page="mkt"]').forEach(x=>x.classList.toggle('on',on&&x.dataset.mview===S.view));
+}
+function show(view){
+  if(view) S.view=view;
+  document.querySelectorAll('.sb-item[data-page]').forEach(x=>x.classList.remove('on'));
+  try{ curPage='mkt'; }catch(e){}
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='page-mkt'));
+  syncNav(); render();
+  if(!S.market&&!S.news) loadMkt();
+  const mc=document.querySelector('main.content'); if(mc&&mc.scrollTo) mc.scrollTo({top:0});
+  if(window.scrollTo) window.scrollTo(0,0);
+}
+function act(a,v,t){
+  if(a==='view'){ S.view=v; syncNav(); render(); return; }
+  if(a==='sp'){ S.species=v; renderSupply(); return; }
+  if(a==='ncat'){ S.ncat=v; S.nlimit=24; renderNews(); return; }
+  if(a==='nclear'){ S.nfilter=null; renderNews(); return; }
+  if(a==='nall'){ S.nall=!S.nall; S.nlimit=24; renderNews(); return; }
+  if(a==='nmore'){ S.nlimit+=24; renderNews(); return; }
+  if(a==='nscroll'){ const r=el('mkNRail'); if(r) r.scrollBy({left:(+v)*r.clientWidth,behavior:'smooth'}); return; }
+  if(a==='dot'){ railGo(+v); return; }
+  if(a==='arr'){ railGo(railIdx+(+v)); return; }
+  if(a==='rel'){ const c=S.cards[+t]; if(!c) return; S.nfilter={label:c.kwLabel,re:c.re}; S.ncat='all'; S.nall=true; renderNews();
+    el('mkNews').scrollIntoView({behavior:'smooth',block:'start'}); return; }
+}
+
+/* ---------- 로드 ---------- */
+let inflight=null, lastLoad=0;
+function loadMkt(force){
+  if(inflight) return inflight;
+  if(!force&&Date.now()-lastLoad<60000&&(S.market||S.news)) return Promise.resolve();
+  inflight=(async function(){
+    if(typeof authValid==='function'&&!authValid()) return;
+    S.err={};
+    const [m,n]=await Promise.allSettled([getJSON('market.json'),getJSON('news.json')]);
+    if(m.status==='fulfilled') S.market=m.value; else S.err['수급현황']=String(m.reason&&m.reason.message||m.reason);
+    if(n.status==='fulfilled') S.news=n.value; else S.err['뉴스']=String(n.reason&&n.reason.message||n.reason);
+    lastLoad=Date.now();
+    if(el('page-mkt').classList.contains('on')) render();
+  })().then(()=>{ inflight=null; },()=>{ inflight=null; });
+  return inflight;
+}
+
+const TEMPLATE=`
+<div class="mk-wrap">
+  <div class="mk-top" id="mkTop"></div>
+  <div class="mk-head">
+    <h1 id="mkTitle">오늘의 시장 인사이트</h1>
+    <div class="mk-cnt" id="mkCnt"></div>
+    <div class="rule"></div>
+    <div class="mk-seg" id="mkViewTabs"><button data-act="view" data-v="insight">인사이트 · 뉴스</button><button data-act="view" data-v="supply">축산 수급현황</button></div>
+    <a class="mk-btn" href="https://www.ekapepia.com/v3/supplyStatus/supplyStatusDashboard.do?menuSn=14" target="_blank" rel="noopener">KAPE 원문 ↗</a>
+  </div>
+  <div class="mk-need" id="mkNeed" style="display:none"></div>
+
+  <div class="mk-view" data-view="insight">
+    <div class="ins-rail" id="mkInsRail"></div>
+    <div class="rail-nav"><button class="arr" data-act="arr" data-v="-1" aria-label="이전">‹</button><div class="dots" id="mkDots"></div><button class="arr" data-act="arr" data-v="1" aria-label="다음">›</button></div>
+    <div class="news" id="mkNews">
+      <div class="news-bar"><div id="mkNewsTabs" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div><span class="sp"></span>
+        <input type="search" id="mkNewsQ" placeholder="기사 검색 (예: 삼겹살, 하림)"><button class="nlink" id="mkNewsAll" data-act="nall">모두 보기</button></div>
+      <div id="mkNewsBody"></div>
+      <div class="mk-src" id="mkNewsSrc"></div>
+    </div>
+  </div>
+
+  <div class="mk-view" data-view="supply">
+    <div class="sp-top">
+      <div><h4>수급상황 신호등</h4><div id="mkSig"></div></div>
+      <div><h4>환율 / 유가 정보</h4><div id="mkFx"></div></div>
+      <div><h4>식육포장 가격</h4><div id="mkRetail"></div></div>
+    </div>
+    <div class="sp-tabs" id="mkSpTabs"></div>
+    <div class="sp-grid" id="mkSpGrid"></div>
+    <div class="mk-src">출처: 축산물품질평가원 축산유통정보 다봄(<a href="https://www.ekapepia.com" target="_blank" rel="noopener">ekapepia.com</a>) 수급현황판 · 각 표의 출처 기관 표기 · 값 아래 선은 최근 12개 시점 추이(마우스를 올리면 값) · 상승 빨강 ▲ / 하락 파랑 ▼</div>
+  </div>
+</div>`;
+function mount(){
+  const nav=document.querySelector('.sb-nav');
+  const mk=(cls,html,view)=>{ const d=document.createElement('div'); d.className='sb-item '+cls; d.dataset.page='mkt'; d.dataset.mview=view; d.innerHTML=html; d.onclick=()=>show(view); return d; };
+  if(nav){
+    const first=nav.firstElementChild;
+    const lab=document.createElement('div'); lab.className='sb-label'; lab.textContent='시장 · 뉴스';
+    [lab,mk('','<span class="ic">📰</span>시장 인사이트','insight'),mk('','<span class="ic">🐖</span>축산 수급현황','supply')].forEach(x=>nav.insertBefore(x,first));
+    if(first&&first.classList.contains('sb-label')) first.style.paddingTop='14px';
+  }
+  const page=document.createElement('div');
+  page.className='page pg-mkt'; page.id='page-mkt'; page.innerHTML=TEMPLATE;
+  (document.querySelector('main.content')||document.body).appendChild(page);
+  page.addEventListener('click',e=>{ const b=e.target.closest&&e.target.closest('[data-act]'); if(!b) return; act(b.dataset.act,b.dataset.v,b.dataset.i); });
+  el('mkNewsQ').addEventListener('input',e=>{ S.nq=e.target.value; renderNews(); });
+  el('mkInsRail').addEventListener('scroll',()=>{ const r=el('mkInsRail'), per=window.matchMedia('(max-width:800px)').matches?1:2;
+    const i=Math.round(r.scrollLeft/((r.firstElementChild&&r.firstElementChild.offsetWidth+16)||1)/per);
+    [...el('mkDots').children].forEach((d,k)=>d.classList.toggle('on',k===i)); railIdx=i; },{passive:true});
+}
+mount();
+if(typeof loadAll==='function'){ const orig=loadAll; loadAll=async function(){ const r=await orig.apply(this,arguments); await loadMkt(true); return r; }; }
+(function(){ const kick=function(){ const app=document.getElementById('app'); if(!app||app.style.display!=='none') loadMkt(); };
+  if(document.readyState==='complete') setTimeout(kick,0); else window.addEventListener('load',function(){ setTimeout(kick,0); }); })();
+window.__mkt={S,render,show,loadMkt};
+})();
+</script>
+
 <script>
 /* MOBILE PATCH: 기존 메뉴/데이터 처리에는 손대지 않고 접기 동작만 추가합니다. */
 (function initMobileMenu(){
