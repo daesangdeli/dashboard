@@ -4647,7 +4647,11 @@ window.__tm={S,parse,render,show,loadTeam};
 .pg-mkt .ins .rel a:before{content:'·';color:var(--violet);font-weight:900;margin-right:6px;}
 .pg-mkt .ins .rel a:hover{color:var(--violet);}
 .pg-mkt .rail-nav{display:flex;align-items:center;justify-content:center;gap:12px;margin:14px 0 24px;}
-.pg-mkt .rail-nav button.arr{border:0;background:none;font-size:1.2rem;color:var(--muted);cursor:pointer;padding:2px 8px;}
+.pg-mkt .rail-nav{gap:18px;}
+.pg-mkt .rail-nav button.arr{width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:#fff;font-size:1.6rem;line-height:1;color:var(--ink2);cursor:pointer;
+  box-shadow:0 1px 3px rgba(17,24,39,.08);display:inline-flex;align-items:center;justify-content:center;padding:0 0 3px;}
+.pg-mkt .rail-nav button.arr:hover{border-color:var(--violet);color:var(--violet);}
+.pg-mkt .dots i{width:8px;height:8px;border-radius:4px;} .pg-mkt .dots i.on{width:24px;}
 .pg-mkt .dots{display:flex;gap:6px;}
 .pg-mkt .dots i{width:6px;height:6px;border-radius:3px;background:#D1D5DB;cursor:pointer;transition:width .2s;}
 .pg-mkt .dots i.on{width:20px;background:var(--violet);}
@@ -4726,16 +4730,14 @@ window.__tm={S,parse,render,show,loadTeam};
 .pg-mkt .kcell .un{font-size:.7rem;color:var(--muted2);}
 .pg-mkt .kcell .spark{height:34px;margin-top:4px;position:relative;width:100%;}
 .pg-mkt .kcell .spark canvas{max-width:100%;}
-.pg-mkt table.kcmp{width:100%;border-collapse:collapse;margin-top:8px;font-size:.74rem;font-variant-numeric:tabular-nums;}
-.pg-mkt table.kcmp td{padding:8px 6px;border-top:1px dashed rgba(255,255,255,.18);}
-.pg-mkt table.kcmp td.lab{color:#fff;font-weight:700;width:33%;line-height:1.35;}
-.pg-mkt table.kcmp td.lab small{display:block;color:var(--navy-ink);font-weight:500;font-size:.68rem;}
-.pg-mkt table.kcmp td.val{background:#fff;}
-.pg-mkt table.kcmp tr:first-child td.val:nth-child(2){border-top-left-radius:6px;}
-.pg-mkt table.kcmp tr:first-child td.val:last-child{border-top-right-radius:6px;}
-.pg-mkt table.kcmp tr:last-child td.val:nth-child(2){border-bottom-left-radius:6px;}
-.pg-mkt table.kcmp tr:last-child td.val:last-child{border-bottom-right-radius:6px;}
-.pg-mkt table.kcmp td.val{border-top:1px dashed #E3E7F2;}
+.pg-mkt .kcmp{margin-top:8px;font-size:.74rem;font-variant-numeric:tabular-nums;}
+.pg-mkt .kcr{display:grid;column-gap:6px;}
+.pg-mkt .kcr .lab{color:#fff;font-weight:700;line-height:1.35;padding:8px 4px;border-top:1px dashed rgba(255,255,255,.18);}
+.pg-mkt .kcr .lab small{display:block;color:var(--navy-ink);font-weight:500;font-size:.68rem;}
+.pg-mkt .kcr .val{background:#fff;padding:8px 8px;display:flex;align-items:center;min-width:0;border-top:1px dashed #E3E7F2;}
+.pg-mkt .kcr .val .chg{flex:1;}
+.pg-mkt .kcr:first-child .val{border-top:0;border-top-left-radius:8px;border-top-right-radius:8px;}
+.pg-mkt .kcr:last-child .val{border-bottom-left-radius:8px;border-bottom-right-radius:8px;}
 .pg-mkt .chg{display:flex;gap:6px;justify-content:space-between;white-space:nowrap;}
 .pg-mkt .chg .v0{color:var(--ink2);}
 .pg-mkt .chg.u .p,.pg-mkt .chg.u .s{color:var(--up);} .pg-mkt .chg.d .p,.pg-mkt .chg.d .s{color:var(--down);}
@@ -4887,7 +4889,8 @@ function renderNews(){
     el('mkNewsBody').innerHTML='<div class="ngrid">'+L.slice(0,S.nlimit).map(ncard).join('')+'</div>'+
       (L.length>S.nlimit?'<button class="mk-btn ghost nmore" data-act="nmore">더 보기 ('+(L.length-S.nlimit)+'건)</button>':'');
   }else{
-    el('mkNewsBody').innerHTML='<div class="nrow"><button class="side l" data-act="nscroll" data-v="-1" aria-label="이전">‹</button><div class="nrail" id="mkNRail">'+L.slice(0,30).map(ncard).join('')+'</div><button class="side r" data-act="nscroll" data-v="1" aria-label="다음">›</button></div>';
+    el('mkNewsBody').innerHTML='<div class="ngrid">'+L.slice(0,12).map(ncard).join('')+'</div>'+
+      (L.length>12?'<button class="mk-btn ghost nmore" data-act="nall">모두 보기 ('+L.length+'건)</button>':'');
   }
   const nw=S.news;
   el('mkNewsSrc').innerHTML='뉴스 '+(nw&&nw.provider==='naver'?'네이버 뉴스 검색':'구글 뉴스')+' · 최근 7일 · 갱신 '+escH(updLabel(nw&&nw.updated))+' · 기사를 누르면 원문이 새 창으로 열립니다.';
@@ -4927,13 +4930,13 @@ function renderSupply(){
   el('mkSpTabs').innerHTML=SPECIES.map(s=>'<button data-act="sp" data-v="'+s.k+'"'+(S.species===s.k?' class="on"':'')+'>'+s.ic+' '+s.k+'</button>').join('');
   const B=S.market.boxes.filter(b=>b.species===S.species);
   el('mkSpGrid').innerHTML=B.map((b,bi)=>{
-    const ncol=b.mains.length;
+    const ncol=b.mains.length, cols='grid-template-columns:minmax(0,.8fr)'+' minmax(0,1.1fr)'.repeat(ncol);
     return '<div class="kbox"><div class="kbox-h"><h5>'+escH(b.title)+'</h5><span class="src">출처: '+escH(b.source)+'</span></div><div class="kbox-b">'+
-      '<div class="krow first" style="grid-template-columns:minmax(0,.8fr)'+' minmax(0,1.1fr)'.repeat(ncol)+'"><div class="when">'+escH(b.date)+'<small>기준</small></div>'+
+      '<div class="krow first" style="'+cols+'"><div class="when">'+escH(b.date)+'<small>기준</small></div>'+
       b.mains.map((m,mi)=>'<div class="kcell"><div class="l" title="'+escH(m.label)+'">'+escH(m.label)+'</div><div class="v'+(m.hl==='red'?' red':'')+'">'+escH(m.value||'-')+'</div><div class="un">'+escH(m.unit)+'</div>'+
         (b.series&&b.series.points&&b.series.points.length>1?'<div class="spark"><canvas id="mkSp_'+bi+'_'+mi+'"></canvas></div>':'')+'</div>').join('')+'</div>'+
-      '<table class="kcmp"><tbody>'+b.comps.map(c=>'<tr><td class="lab">'+escH(c.label)+'<small>'+escH(c.period?'('+c.period+')':'')+'</small></td>'+
-        b.mains.map((m,mi)=>'<td class="val">'+cmpCell(c.cells[mi])+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></div>';
+      '<div class="kcmp">'+b.comps.map(c=>'<div class="kcr" style="'+cols+'"><div class="lab">'+escH(c.label)+'<small>'+escH(c.period?'('+c.period+')':'')+'</small></div>'+
+        b.mains.map((m,mi)=>'<div class="val">'+cmpCell(c.cells[mi])+'</div>').join('')+'</div>').join('')+'</div></div></div>';
   }).join('')||'<div class="mk-need">이 축종의 수급 표가 없습니다.</div>';
   if(typeof Chart==='undefined') return;
   B.forEach((b,bi)=>{
