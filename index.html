@@ -4055,6 +4055,21 @@ window.__st={S,parse,buildItems,render,act,loadStock};
 .pg-team .tm-view{display:none;} .pg-team .tm-view.on{display:block;}
 .pg-team .tm-date{display:inline-block;background:var(--soft);color:var(--main);font-weight:700;font-size:.78rem;border-radius:6px;padding:3px 10px;margin-left:8px;vertical-align:middle;}
 .pg-team .tbl-scroll.free{max-height:none;}
+/* 넓은 표가 옆 칸을 밀어내 화면이 넘치지 않도록 */
+.pg-team .grid-2-even{grid-template-columns:repeat(2,minmax(0,1fr));}
+.pg-team .grid-2{grid-template-columns:minmax(0,4fr) minmax(0,6fr);}
+@media (max-width:1000px){ .pg-team .grid-2-even,.pg-team .grid-2{grid-template-columns:minmax(0,1fr);} }
+/* 결원자 명단 */
+.pg-team .abs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+.pg-team .abs-ban{border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
+.pg-team .abs-ban h4{margin:0 0 10px;font-size:.86rem;font-weight:700;display:flex;justify-content:space-between;align-items:baseline;}
+.pg-team .abs-ban h4 small{font-size:.74rem;color:var(--muted);font-weight:500;}
+.pg-team .abs-people{display:flex;flex-wrap:wrap;gap:6px;}
+.pg-team .abs-p{display:inline-flex;align-items:center;gap:6px;background:#F6F8FB;border-radius:999px;padding:4px 10px 4px 4px;font-size:.8rem;font-weight:600;}
+.pg-team .abs-p i{font-style:normal;font-size:.68rem;font-weight:700;color:#fff;border-radius:999px;padding:2px 8px;background:var(--muted);}
+.pg-team .abs-p i.leave{background:var(--amber);} .pg-team .abs-p i.half{background:#BCBD22;} .pg-team .abs-p i.sick{background:var(--red);} .pg-team .abs-p i.etc{background:#7F7F7F;} .pg-team .abs-p i.unk{background:#B4BCCB;}
+.pg-team .abs-mix{margin-top:8px;font-size:.74rem;color:var(--muted);}
+.pg-team .abs-none{color:var(--muted);font-size:.84rem;padding:6px 2px;}
 .pg-team thead th.th-item{text-align:center !important;}
 .pg-team table.tm-grp thead th{text-align:center;}
 .pg-team table.tm-grp thead tr:first-child th{border-bottom:1px solid #D6E4F3;}
@@ -4283,8 +4298,10 @@ function renderStaff(){
       {label:'공상·병가',data:D.bans.map(b=>b.sick),backgroundColor:COL.red,stack:'s'},
       {label:'기타',data:D.bans.map(b=>b.etc),backgroundColor:COL.gray,stack:'s'}]},
     options:{indexAxis:'y',scales:{x:{stacked:true,grid:{color:'#F1F3F7'},ticks:{font:{family:FONT,size:10}}},y:{stacked:true,grid:{display:false},ticks:{color:'#5B6B85',font:{family:FONT,size:12.8,weight:'600'}}}},
-      plugins:{legend:{position:'bottom',labels:{font:{family:FONT,size:11},usePointStyle:true,boxWidth:8}}}}});
+      plugins:{legend:{position:'bottom',labels:{font:{family:FONT,size:11},usePointStyle:true,boxWidth:8}},
+        tooltip:{callbacks:{footer:it=>{ const b=D.bans[it[0].dataIndex]; return b&&b.note?'비고: '+b.note:''; }}}}}});
 
+  renderAbsent();
   // 근무시간 표
   el('tmHourTbl').innerHTML='<thead><tr><th rowspan="2">반</th><th colspan="3" class="bl">정상 근무</th><th colspan="4" class="bl">시차 근무</th></tr>'+
     '<tr><th class="bl">출근</th><th>퇴근</th><th>구간</th><th class="bl">출근</th><th>퇴근</th><th>구간</th><th>인원</th></tr></thead><tbody>'+
@@ -4293,6 +4310,30 @@ function renderStaff(){
         '<td class="bl">'+(h.sin==null?'<span class="tm-dim">-</span>':hm(h.sin))+'</td><td>'+(h.sout==null?'<span class="tm-dim">-</span>':hm(h.sout)+(h.sout<h.sin?' <span class="tm-dim">(익일)</span>':''))+'</td>'+
         '<td>'+(b==null?'<span class="tm-dim">-</span>':f(b/60,1)+'h')+'</td><td>'+(h.sn?f(h.sn,0)+'명':'<span class="tm-dim">-</span>')+'</td></tr>'; }).join('')+'</tbody>';
   renderTimeline();
+}
+const ABS_TYPES=[{k:'leave',lb:'휴가·연차',re:/연차|휴가|월차/},{k:'half',lb:'반차',re:/반차/},{k:'sick',lb:'공상·병가',re:/병가|공상|산재|입원/},{k:'etc',lb:'기타',re:/.*/}];
+function renderAbsent(){
+  const B=S.data.bans.filter(b=>b.abs>0||b.note);
+  if(!B.length){ el('tmAbsList').innerHTML='<div class="abs-none">오늘 결원이 없습니다.</div>'; return; }
+  el('tmAbsList').innerHTML='<div class="abs-grid">'+B.map(b=>{
+    const kinds=ABS_TYPES.filter(t=>b[t.k]>0);
+    const only=kinds.length===1?kinds[0]:null;
+    // "우금숙(병가)", "양정임 이효정" → 사람 목록
+    const people=String(b.note||'').split(/[\s,，、\/·]+/).filter(Boolean).reduce((a,tok)=>{
+      const m=tok.match(/^([^()]+)?\(([^()]*)\)$/);
+      if(m&&!m[1]&&a.length){ a[a.length-1].why=m[2]; return a; }   // "김OO (병가)"처럼 띄어 쓴 경우
+      a.push({name:m?m[1]:tok,why:m?m[2]:''}); return a;
+    },[]);
+    const chips=people.map(p=>{
+      let t=p.why?(ABS_TYPES.find(x=>x.k!=='etc'&&x.re.test(p.why))||{k:'etc',lb:p.why}):only;
+      const lb=t?(p.why&&t.k==='etc'?p.why:t.lb):'사유 미기재';
+      return '<span class="abs-p"><i class="'+(t?t.k:'unk')+'">'+escH(lb)+'</i>'+escH(p.name)+'</span>';
+    }).join('');
+    const mix=kinds.map(t=>t.lb+' '+b[t.k]).join(' · ');
+    return '<div class="abs-ban"><h4>'+escH(b.name)+'<small>결원 '+f(b.abs,0)+'명 · 근무 '+f(b.work,0)+'명</small></h4>'+
+      '<div class="abs-people">'+(chips||'<span class="abs-none">비고에 이름 없음</span>')+'</div>'+
+      (kinds.length>1||(!people.length&&mix)?'<div class="abs-mix">시트 결원 구분: '+escH(mix)+'</div>':'')+'</div>';
+  }).join('')+'</div>';
 }
 function kpi(t,v,unit,s,color){
   return '<div class="kpi"'+(color?' style="border-top-color:'+color+'"':'')+'><div class="t">'+escH(t)+'</div><div class="v">'+v+'<small>'+escH(unit)+'</small></div><div class="s">'+escH(s)+'</div></div>';
@@ -4511,6 +4552,8 @@ const TEMPLATE=`
         <div class="card"><h2 class="sec">반별 근무 · 결원 구성</h2>
           <div class="chart-box"><canvas id="tmBanChart"></canvas></div></div>
       </div>
+      <div class="card"><h2 class="sec">결원자 명단 <span class="hint">— 시트 비고 기준 · 괄호 안 사유가 있으면 그대로, 없으면 그 반의 결원 유형이 하나뿐일 때 그 유형으로 표시</span></h2>
+        <div id="tmAbsList"></div></div>
       <div class="card"><h2 class="sec">반별 근무시간 (전일) <span class="hint">— 구간 = 출근~퇴근 (휴게 포함), 자정을 넘기면 익일로 계산</span></h2>
         <div class="grid-2-even">
           <div class="tbl-scroll free"><table id="tmHourTbl" class="tm-grp"></table></div>
@@ -5312,6 +5355,28 @@ function tidy(){
 new MutationObserver(()=>tidy()).observe(nav,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
 tidy();
 window.addEventListener('load',tidy);
+})();
+</script>
+
+<!-- ===== 접속 알림: 비밀번호로 새로 들어올 때 Apps Script(apps-script/access-notify.gs)로 신호 → 메일 ===== -->
+<script>
+(function(){
+"use strict";
+const NOTIFY_URL='';   // Apps Script 웹 앱 URL (https://script.google.com/macros/s/…/exec). 비어 있으면 알림 꺼짐
+if(!NOTIFY_URL) return;
+let wasAuth=false; try{ wasAuth=sessionStorage.getItem('dh_auth')==='1'; }catch(e){}
+if(wasAuth) return;                       // 같은 창에서 이미 들어온 상태(새로고침)는 알리지 않음
+const lock=document.getElementById('lock'); if(!lock) return;
+let sent=false;
+function send(){
+  if(sent) return; sent=true;
+  let d=''; try{ d=localStorage.getItem('dh_dev')||''; if(!d){ d=Math.random().toString(36).slice(2,12); localStorage.setItem('dh_dev',d); } }catch(e){}
+  const ua=navigator.userAgent||'';
+  const dev=/iPhone|Android.+Mobile/.test(ua)?'휴대폰':/iPad|Android/.test(ua)?'태블릿':'PC';
+  const body=new URLSearchParams({d,dev,ua,scr:screen.width+'x'+screen.height,url:location.href.split('#')[0]});
+  try{ if(!(navigator.sendBeacon&&navigator.sendBeacon(NOTIFY_URL,body))) fetch(NOTIFY_URL,{method:'POST',mode:'no-cors',body}); }catch(e){}
+}
+new MutationObserver(()=>{ if(lock.style.display==='none') send(); }).observe(lock,{attributes:true,attributeFilter:['style']});
 })();
 </script>
 
