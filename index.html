@@ -4416,10 +4416,10 @@ function renderProdTeam(){
   el('tmProdDate').textContent=D.prodDate||'';
   const dt=dl.total||{}, wt=wk.total||{}, mt=mo.total||{};
   el('tmProdKpis').innerHTML=
-    kpi('일일 실적',f(dt.act,1),'톤','계획 '+f(dt.plan,1)+'톤 · 차이 '+(dt.diff==null?'-':(dt.diff>0?'+':'')+f(dt.diff,1)))+
-    kpi('가동률 (CAPA 대비)',dt.upAct==null?'-':Math.round(dt.upAct*100),'%','CAPA '+f(dt.capa,1)+'톤 · 계획 가동률 '+fp(dt.upPlan),COL.green)+
+    kpi('월간 누계 생산량',f(mt.act,0),'톤',(D.cumLabel||'누계')+' · 진척율 실행 '+fp(mt.rateExec)+' / 경영 '+fp(mt.rateMgmt)+' · 실행계획 '+f(mt.planExec,0)+'톤',COL.purple)+
     kpi('주간 누계',f(wt.cum,1),'톤',wk.rows.map(r=>r.name+' '+f(r.cum,1)).join(' · '),COL.amber)+
-    kpi('월간 진척율 (실행)',mt.rateExec==null?'-':Math.round(mt.rateExec*100),'%','실적 '+f(mt.act,0)+' / 실행계획 '+f(mt.planExec,0)+'톤 · 경영 '+fp(mt.rateMgmt),COL.purple);
+    kpi('일일 실적',f(dt.act,1),'톤','계획 '+f(dt.plan,1)+'톤 · 차이 '+(dt.diff==null?'-':(dt.diff>0?'+':'')+f(dt.diff,1)))+
+    kpi('가동률 (CAPA 대비)',dt.upAct==null?'-':Math.round(dt.upAct*100),'%','CAPA '+f(dt.capa,1)+'톤 · 계획 가동률 '+fp(dt.upPlan),COL.green);
 
   // 일일 실적
   const upCell=r=>r==null?'-':'<span class="rate-bar"><span class="cell-bar"><b style="width:'+Math.min(100,r*100).toFixed(0)+'%;background:'+(r>=1?COL.green:r>=0.8?COL.main:COL.red)+'"></b></span>'+fp(r)+'</span>';
@@ -4580,18 +4580,6 @@ const TEMPLATE=`
     <div class="tm-view" data-view="prod">
       <h2 class="sec" style="margin:4px 0 12px">생산실적 <span class="tm-date" id="tmProdDate"></span> <span class="hint">— 단위: 톤</span></h2>
       <div class="kpis" id="tmProdKpis"></div>
-      <div class="grid-2-even">
-        <div class="card"><h2 class="sec">일일 실적 <span class="hint">— 가동률 = 실적 ÷ CAPA</span></h2>
-          <div class="tbl-scroll free"><table id="tmDailyTbl"></table></div></div>
-        <div class="card"><h2 class="sec">품목별 계획 · 실적 · CAPA</h2>
-          <div class="chart-box"><canvas id="tmDailyChart"></canvas></div></div>
-      </div>
-      <div class="grid-2-even">
-        <div class="card"><h2 class="sec">주간 생산량</h2>
-          <div class="chart-box"><canvas id="tmWeekChart"></canvas></div></div>
-        <div class="card"><h2 class="sec">주간 생산량 표</h2>
-          <div class="tbl-scroll free"><table id="tmWeekTbl"></table></div></div>
-      </div>
       <div class="card"><h2 class="sec">월간 생산 진척율 <span class="hint">— <b id="tmCumLabel">누계</b> 기준 · 실행계획(3개월 실행계획) / 경영계획</span></h2>
         <div class="prog-grid" id="tmProgCards"></div></div>
       <div class="grid-2">
@@ -4599,6 +4587,18 @@ const TEMPLATE=`
           <div class="chart-box"><canvas id="tmMonthChart"></canvas></div></div>
         <div class="card"><h2 class="sec">월간 진척 상세</h2>
           <div class="tbl-scroll free"><table id="tmMonthTbl" class="tm-grp"></table></div></div>
+      </div>
+      <div class="grid-2-even">
+        <div class="card"><h2 class="sec">주간 생산량</h2>
+          <div class="chart-box"><canvas id="tmWeekChart"></canvas></div></div>
+        <div class="card"><h2 class="sec">주간 생산량 표</h2>
+          <div class="tbl-scroll free"><table id="tmWeekTbl"></table></div></div>
+      </div>
+      <div class="grid-2-even">
+        <div class="card"><h2 class="sec">일일 실적 <span class="hint">— 가동률 = 실적 ÷ CAPA</span></h2>
+          <div class="tbl-scroll free"><table id="tmDailyTbl"></table></div></div>
+        <div class="card"><h2 class="sec">품목별 계획 · 실적 · CAPA</h2>
+          <div class="chart-box"><canvas id="tmDailyChart"></canvas></div></div>
       </div>
       <div class="card"><h2 class="sec">ALL 시리즈 생산량</h2>
         <div class="grid-2-even">
