@@ -5394,6 +5394,32 @@ new MutationObserver(()=>{ if(lock.style.display==='none') send(); }).observe(lo
 .pg-raw table.rw tr.price td.item{color:#7C3AED;}
 .pg-raw table.rw tr.end td{font-weight:700;}
 .pg-raw table.rw tbody tr.pick{cursor:pointer;}
+.pg-raw table.det{font-size:.8rem;}
+.pg-raw table.det thead th{padding:10px 10px;}
+.pg-raw table.det th:first-child,.pg-raw table.det td:first-child{position:sticky;left:0;z-index:1;background:#fff;min-width:150px;}
+.pg-raw table.det thead th:first-child{background:var(--soft);z-index:3;}
+.pg-raw table.det tbody td{padding:8px 10px;border-bottom:1px solid #F3F5F8;}
+.pg-raw table.det th.cum,.pg-raw table.det td.cum{border-left:2px solid #E3E7EE;background:#FAFBFD;}
+.pg-raw table.det thead th.cur{background:var(--main);color:#fff;}
+.pg-raw table.det td.cur{background:#EEF5FC;box-shadow:inset 1px 0 0 #B9D3EE,inset -1px 0 0 #B9D3EE;}
+/* 구역(냉장·냉동·합계) */
+.pg-raw table.det tr.zone td{background:#fff;border-bottom:0;padding:22px 10px 8px;}
+.pg-raw table.det tr.zone td span{display:inline-flex;align-items:center;gap:8px;font-size:.9rem;font-weight:800;color:var(--ink);}
+.pg-raw table.det tr.zone td span:before{content:'';width:4px;height:16px;border-radius:2px;background:var(--main);}
+.pg-raw table.det tr.zone.z-냉동 td span:before{background:#17BECF;} .pg-raw table.det tr.zone.z-합계 td span:before{background:#5B6B85;}
+.pg-raw table.det tr.zone:first-child td{padding-top:10px;}
+/* 수량 / 단가 소제목 */
+.pg-raw table.det tr.grp td{background:#F7F9FC !important;color:var(--muted);font-size:.7rem;font-weight:700;letter-spacing:.04em;padding:5px 10px;border-bottom:0;}
+.pg-raw table.det tr.grp.price td{background:#F8F5FE !important;color:#7C3AED;}
+.pg-raw table.det td.item{color:var(--ink2,#374151);font-weight:600;}
+.pg-raw table.det tr.p td.item{color:#6D28D9;}
+.pg-raw table.det tr.key td{font-weight:800;color:var(--ink);background:#FCFDFE;}
+.pg-raw table.det tr.key td.item:after{content:'●';color:var(--main);font-size:.5rem;margin-left:6px;vertical-align:middle;}
+.pg-raw table.det tr.p.key td.item:after{color:#7C3AED;}
+.pg-raw table.det tr.key td.fut{color:#9AA4B5;font-weight:600;}
+.pg-raw table.det tr.dim td{color:#A3ACBD;font-size:.74rem;font-weight:400;}
+.pg-raw table.det tr.dim td.item{color:#A3ACBD;}
+.pg-raw table.det tr.dim td.cur{color:#8A96AB;}
 .pg-raw .note{font-size:.74rem;color:var(--muted);margin-top:10px;line-height:1.6;}
 .pg-raw .grid-2-even{grid-template-columns:repeat(2,minmax(0,1fr));}
 @media (max-width:1000px){ .pg-raw .grid-2-even{grid-template-columns:minmax(0,1fr);} }
@@ -5518,12 +5544,21 @@ function render(){
   // 시트 원본 형태 상세표
   const PRICE=/단가|기타 입고/;
   el('rwDetailTitle').textContent=x.label+' 월별 수불 · 단가';
-  el('rwDetail').innerHTML='<thead><tr><th>항목</th>'+mL.map((l,i)=>'<th class="'+(i===mi?'cur':fut(i)?'fut':'')+'">'+l+'</th>').join('')+'<th>누계</th></tr></thead><tbody>'+
-    x.order.map(s=>'<tr class="blk"><td colspan="'+(D.months.length+2)+'">'+escH(s)+'</td></tr>'+
-      Object.keys(x.blocks[s]).map(it=>{ const b=x.blocks[s][it], pr=PRICE.test(it);
-        return '<tr class="'+(pr?'price':'')+(it==='기말재고'?' end':'')+'"><td class="item">'+escH(it)+'</td>'+
-          b.vals.map((val,i)=>'<td class="'+(i===mi?'cur':fut(i)?'fut':'')+'">'+(val==null?'<span class="cmp-dim">-</span>':(pr?f0(val):f1(val)))+'</td>').join('')+
-          '<td class="cell-strong">'+(b.cum==null?'':f1(b.cum))+'</td></tr>'; }).join('')).join('')+'</tbody>';
+  const cls=i=>(i===mi?'cur':fut(i)?'fut':'');
+  const QTY=['기초재고','입고량','사용량','기말재고'];
+  const rowHtml=(it,b,pr)=>{ const key=it==='기말재고'||it==='사용단가', dim=/기타/.test(it);
+    return '<tr class="'+(pr?'p':'q')+(key?' key':'')+(dim?' dim':'')+'"><td class="item">'+escH(it)+'</td>'+
+      b.vals.map((val,i)=>'<td class="'+cls(i)+'">'+(val==null?'<span class="cmp-dim">-</span>':(pr?f0(val):f1(val)))+'</td>').join('')+
+      '<td class="cum cell-strong">'+(b.cum==null?'':f1(b.cum))+'</td></tr>'; };
+  const ncol=D.months.length+2;
+  el('rwDetail').className='rw det';
+  el('rwDetail').innerHTML='<thead><tr><th>항목</th>'+mL.map((l,i)=>'<th class="'+cls(i)+'">'+l+'</th>').join('')+'<th class="cum">누계</th></tr></thead><tbody>'+
+    x.order.map(st=>{ const bl=x.blocks[st], items=Object.keys(bl);
+      const q=items.filter(it=>!PRICE.test(it)).sort((a,b)=>QTY.indexOf(a)-QTY.indexOf(b)), p=items.filter(it=>PRICE.test(it));
+      return '<tr class="zone z-'+escH(st)+'"><td colspan="'+ncol+'"><span>'+escH(st)+'</span></td></tr>'+
+        (q.length?'<tr class="grp"><td colspan="'+ncol+'">수량 (톤)</td></tr>'+q.map(it=>rowHtml(it,bl[it],false)).join(''):'')+
+        (p.length?'<tr class="grp price"><td colspan="'+ncol+'">단가 (원/kg)</td></tr>'+p.map(it=>rowHtml(it,bl[it],true)).join(''):'');
+    }).join('')+'</tbody>';
 }
 
 /* ---------- 화면 붙이기 · 로드 ---------- */
