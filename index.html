@@ -5394,32 +5394,29 @@ new MutationObserver(()=>{ if(lock.style.display==='none') send(); }).observe(lo
 .pg-raw table.rw tr.price td.item{color:#7C3AED;}
 .pg-raw table.rw tr.end td{font-weight:700;}
 .pg-raw table.rw tbody tr.pick{cursor:pointer;}
-.pg-raw table.det{font-size:.8rem;}
+.pg-raw table.det{font-size:.8rem;border-collapse:separate;border-spacing:0;}
 .pg-raw table.det thead th{padding:10px 10px;}
-.pg-raw table.det th:first-child,.pg-raw table.det td:first-child{position:sticky;left:0;z-index:1;background:#fff;min-width:150px;}
-.pg-raw table.det thead th:first-child{background:var(--soft);z-index:3;}
-.pg-raw table.det tbody td{padding:8px 10px;border-bottom:1px solid #F3F5F8;}
-.pg-raw table.det th.cum,.pg-raw table.det td.cum{border-left:2px solid #E3E7EE;background:#FAFBFD;}
+.pg-raw table.det thead th.st,.pg-raw table.det thead th.it{text-align:left;}
+.pg-raw table.det th.st,.pg-raw table.det td.st{position:sticky;left:0;z-index:2;width:78px;min-width:78px;}
+.pg-raw table.det th.it,.pg-raw table.det td.it{position:sticky;left:78px;z-index:2;min-width:96px;text-align:left !important;}
+.pg-raw table.det thead th.st,.pg-raw table.det thead th.it{background:var(--soft);z-index:4;}
+.pg-raw table.det tbody td{padding:9px 10px;border-bottom:1px solid rgba(27,42,74,.06);}
 .pg-raw table.det thead th.cur{background:var(--main);color:#fff;}
-.pg-raw table.det td.cur{background:#EEF5FC;box-shadow:inset 1px 0 0 #B9D3EE,inset -1px 0 0 #B9D3EE;}
-/* 구역(냉장·냉동·합계) */
-.pg-raw table.det tr.zone td{background:#fff;border-bottom:0;padding:22px 10px 8px;}
-.pg-raw table.det tr.zone td span{display:inline-flex;align-items:center;gap:8px;font-size:.9rem;font-weight:800;color:var(--ink);}
-.pg-raw table.det tr.zone td span:before{content:'';width:4px;height:16px;border-radius:2px;background:var(--main);}
-.pg-raw table.det tr.zone.z-냉동 td span:before{background:#17BECF;} .pg-raw table.det tr.zone.z-합계 td span:before{background:#5B6B85;}
-.pg-raw table.det tr.zone:first-child td{padding-top:10px;}
-/* 수량 / 단가 소제목 */
-.pg-raw table.det tr.grp td{background:#F7F9FC !important;color:var(--muted);font-size:.7rem;font-weight:700;letter-spacing:.04em;padding:5px 10px;border-bottom:0;}
-.pg-raw table.det tr.grp.price td{background:#F8F5FE !important;color:#7C3AED;}
-.pg-raw table.det td.item{color:var(--ink2,#374151);font-weight:600;}
-.pg-raw table.det tr.p td.item{color:#6D28D9;}
-.pg-raw table.det tr.key td{font-weight:800;color:var(--ink);background:#FCFDFE;}
-.pg-raw table.det tr.key td.item:after{content:'●';color:var(--main);font-size:.5rem;margin-left:6px;vertical-align:middle;}
-.pg-raw table.det tr.p.key td.item:after{color:#7C3AED;}
+.pg-raw table.det td.cur{box-shadow:inset 1px 0 0 rgba(31,119,180,.35),inset -1px 0 0 rgba(31,119,180,.35);font-weight:700;}
+.pg-raw table.det th.cum,.pg-raw table.det td.cum{border-left:2px solid #E3E7EE;font-weight:700;}
+/* 보관별 색: 냉장 파랑 · 냉동 청록 · 합계 회색 */
+.pg-raw tbody.sg td.st{text-align:center !important;vertical-align:middle;color:#fff;border-bottom:3px solid #fff;}
+.pg-raw tbody.sg td.st b{display:block;font-size:.88rem;font-weight:800;letter-spacing:.05em;}
+.pg-raw tbody.sg td.st small{display:block;font-size:.64rem;opacity:.85;margin-top:2px;font-weight:500;}
+.pg-raw tbody.s-cold td.st{background:#2F7BC4;} .pg-raw tbody.s-cold td{background:#F3F8FD;}
+.pg-raw tbody.s-frz td.st{background:#0E9AA7;}  .pg-raw tbody.s-frz td{background:#F0FAFA;}
+.pg-raw tbody.s-sum td.st{background:#5B6B85;}  .pg-raw tbody.s-sum td{background:#F6F7F9;}
+.pg-raw tbody.s-cold td.cur{background:#E3EFFA;} .pg-raw tbody.s-frz td.cur{background:#DDF3F4;} .pg-raw tbody.s-sum td.cur{background:#ECEEF2;}
+.pg-raw tbody.sg tr:last-child td{border-bottom:3px solid #fff;}
+.pg-raw tbody.s-sum tr.key td{font-weight:800;}
+.pg-raw table.det td.it{color:#374151;font-weight:600;}
+.pg-raw table.det tr.key td{font-weight:800;color:#111827;}
 .pg-raw table.det tr.key td.fut{color:#9AA4B5;font-weight:600;}
-.pg-raw table.det tr.dim td{color:#A3ACBD;font-size:.74rem;font-weight:400;}
-.pg-raw table.det tr.dim td.item{color:#A3ACBD;}
-.pg-raw table.det tr.dim td.cur{color:#8A96AB;}
 .pg-raw .note{font-size:.74rem;color:var(--muted);margin-top:10px;line-height:1.6;}
 .pg-raw .grid-2-even{grid-template-columns:repeat(2,minmax(0,1fr));}
 @media (max-width:1000px){ .pg-raw .grid-2-even{grid-template-columns:minmax(0,1fr);} }
@@ -5541,24 +5538,24 @@ function render(){
   const head='<thead><tr><th>'+(x.key==='total'?'자재':'구분')+'</th>'+mL.map((l,i)=>'<th class="'+(i===mi?'cur':fut(i)?'fut':'')+'">'+l+'</th>').join('')+'</tr></thead>';
   el('rwTurn').innerHTML=head+'<tbody>'+turnRows.map(rw=>'<tr><td>'+escH(rw[0])+'</td>'+D.months.map((_,i)=>{ const t=rw[1][i]; return '<td class="t-'+judge(t)[0]+(fut(i)?' fut':'')+'">'+(t==null?'-':f1(t))+'</td>'; }).join('')+'</tr>').join('')+'</tbody>';
 
-  // 시트 원본 형태 상세표
-  const PRICE=/단가|기타 입고/;
-  el('rwDetailTitle').textContent=x.label+' 월별 수불 · 단가';
+  // 입출고 흐름 · 단가 표 (보관 구분을 색 칸으로)
+  el('rwDetailTitle').textContent=x.label; el('rwDetailTitle2').textContent=x.label;
   const cls=i=>(i===mi?'cur':fut(i)?'fut':'');
-  const QTY=['기초재고','입고량','사용량','기말재고'];
-  const rowHtml=(it,b,pr)=>{ const key=it==='기말재고'||it==='사용단가', dim=/기타/.test(it);
-    return '<tr class="'+(pr?'p':'q')+(key?' key':'')+(dim?' dim':'')+'"><td class="item">'+escH(it)+'</td>'+
-      b.vals.map((val,i)=>'<td class="'+cls(i)+'">'+(val==null?'<span class="cmp-dim">-</span>':(pr?f0(val):f1(val)))+'</td>').join('')+
-      '<td class="cum cell-strong">'+(b.cum==null?'':f1(b.cum))+'</td></tr>'; };
-  const ncol=D.months.length+2;
-  el('rwDetail').className='rw det';
-  el('rwDetail').innerHTML='<thead><tr><th>항목</th>'+mL.map((l,i)=>'<th class="'+cls(i)+'">'+l+'</th>').join('')+'<th class="cum">누계</th></tr></thead><tbody>'+
-    x.order.map(st=>{ const bl=x.blocks[st], items=Object.keys(bl);
-      const q=items.filter(it=>!PRICE.test(it)).sort((a,b)=>QTY.indexOf(a)-QTY.indexOf(b)), p=items.filter(it=>PRICE.test(it));
-      return '<tr class="zone z-'+escH(st)+'"><td colspan="'+ncol+'"><span>'+escH(st)+'</span></td></tr>'+
-        (q.length?'<tr class="grp"><td colspan="'+ncol+'">수량 (톤)</td></tr>'+q.map(it=>rowHtml(it,bl[it],false)).join(''):'')+
-        (p.length?'<tr class="grp price"><td colspan="'+ncol+'">단가 (원/kg)</td></tr>'+p.map(it=>rowHtml(it,bl[it],true)).join(''):'');
-    }).join('')+'</tbody>';
+  const ST_CLS={'냉장':'s-cold','냉동':'s-frz','합계':'s-sum'};
+  const table=(items,isPrice)=>{
+    const head='<thead><tr><th class="st">보관</th><th class="it">항목</th>'+mL.map((l,i)=>'<th class="'+cls(i)+'">'+l+'</th>').join('')+(isPrice?'':'<th class="cum">누계</th>')+'</tr></thead>';
+    const body=x.order.map(st=>{
+      const rows=items.filter(it=>x.blocks[st][it]); if(!rows.length) return '';
+      const sc=ST_CLS[st]||'s-sum';
+      return '<tbody class="sg '+sc+'">'+rows.map((it,ri)=>{ const bv=x.blocks[st][it], key=it==='기말재고'||it==='사용단가';
+        return '<tr class="'+(key?'key':'')+'">'+(ri===0?'<td class="st" rowspan="'+rows.length+'"><b>'+escH(st)+'</b>'+(st!=='합계'&&x.note&&x.order.length===1?'<small>'+escH(x.note)+'</small>':'')+'</td>':'')+
+          '<td class="it">'+escH(it)+'</td>'+bv.vals.map((val,i)=>'<td class="'+cls(i)+'">'+(val==null?'<span class="cmp-dim">-</span>':(isPrice?f0(val):f1(val)))+'</td>').join('')+
+          (isPrice?'':'<td class="cum">'+(bv.cum==null?'':f1(bv.cum))+'</td>')+'</tr>'; }).join('')+'</tbody>';
+    }).join('');
+    return head+body;
+  };
+  el('rwFlow').innerHTML=table(['기초재고','입고량','사용량','기말재고'],false);
+  el('rwPriceTbl').innerHTML=table(['입고단가','사용단가','재고단가'],true);
 }
 
 /* ---------- 화면 붙이기 · 로드 ---------- */
@@ -5578,9 +5575,11 @@ const TEMPLATE=`
     </div>
     <div class="card"><h2 class="sec">재고회전월 <span class="hint">— 기말재고 ÷ 사용량 (개월)</span></h2>
       <div class="tbl-scroll" style="max-height:none"><table id="rwTurn" class="rw"></table></div></div>
-    <div class="card"><h2 class="sec" id="rwDetailTitle">월별 수불 · 단가</h2>
-      <div class="tbl-scroll" style="max-height:none"><table id="rwDetail" class="rw"></table></div>
-      <p class="note">사용단가 = (기초금액 + 입고금액) ÷ (기초 + 입고수량) · 재고단가 = (기초금액 + 입고금액 + 기타 입고/소비 − 사용금액) ÷ 기말재고 (SAP CKM3 이동평균) · 시트 설명 그대로</p></div>
+    <div class="card"><h2 class="sec"><span id="rwDetailTitle"></span> 입출고 흐름 <span class="hint">— 톤 · 기초재고 + 입고 − 사용 = 기말재고</span></h2>
+      <div class="tbl-scroll" style="max-height:none"><table id="rwFlow" class="rw det"></table></div></div>
+    <div class="card"><h2 class="sec"><span id="rwDetailTitle2"></span> 단가 <span class="hint">— 원/kg · SAP CKM3 이동평균</span></h2>
+      <div class="tbl-scroll" style="max-height:none"><table id="rwPriceTbl" class="rw det"></table></div>
+      <p class="note">입고단가 = 해당 월 입고 평균 · 사용단가 = (기초금액 + 입고금액) ÷ (기초 + 입고수량) · 재고단가 = 기말재고 평가단가 (시트 설명 기준)</p></div>
   </div>
 </div>`;
 function pageOn(){ const p=el('page-raw'); return p&&p.classList.contains('on'); }
