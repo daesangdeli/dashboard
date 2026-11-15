@@ -4502,6 +4502,24 @@ function show(view){
   if(window.scrollTo) window.scrollTo(0,0);
 }
 
+/* 비고(이름) 보정: 구글 CSV는 한 열에 숫자가 많으면 그 열의 글자를 비워 보내므로,
+   표 위쪽(A1:Q40)만 따로 읽어 반별 비고를 다시 채움 — 그 범위의 P열은 글자뿐이라 지워지지 않음 */
+async function patchNotes(D){
+  try{
+    if(typeof gvizUrl!=='function'||typeof parseCSV!=='function') return;
+    const res=await fetch(gvizUrl(TM_SHEET)+'&range=A1:Q40',{cache:'no-store'});
+    if(!res.ok) return;
+    const rows=parseCSV(await res.text()), seen={};
+    rows.forEach(r=>{
+      const name=String(r[0]||'').trim();
+      if(!/.반$/.test(name)||seen[name]) return;      // 첫 번째로 나오는 반 = '반별 근무인원' 표
+      seen[name]=1;
+      const note=String(r[15]||'').trim(), b=D.bans.find(x=>x.name===name);
+      if(b&&note&&!b.note) b.note=note;
+    });
+  }catch(e){ console.warn('비고 보정 실패:',e.message); }
+}
+
 /* ---------- 데이터 로드 ---------- */
 let inflight=null, lastLoad=0;
 function loadTeam(force){
@@ -4513,6 +4531,7 @@ function loadTeam(force){
       if(typeof fetchSheetMatrix!=='function') throw new Error('대시보드 본체의 시트 로더(fetchSheetMatrix)를 찾지 못했습니다');
       if(typeof authValid==='function'&&!authValid()) return;
       const data=parse(await fetchSheetMatrix(TM_SHEET));
+      await patchNotes(data);
       if(!data.bans.length&&!data.blocks.length&&!data.daily.rows.length) throw new Error('인원·생산 구역을 찾지 못했습니다 — A열의 "3. 반별 근무인원", "2. 일일 실적" 같은 구역 제목을 확인해주세요');
       S.data=data; lastLoad=Date.now();
       need.style.display='none'; body.style.display='block';
