@@ -340,6 +340,11 @@ body{margin:0;background:var(--sh-bg);color:var(--sh-ink);
 .pg-rcpt tr.grp td{background:var(--accent-soft);color:var(--accent);font-weight:700;
   border-top:1.5px solid var(--accent);border-bottom:1px solid var(--accent);font-size:12.5px;}
 .pg-rcpt tr.grp td.zone-m{background:#dfeaf5;}
+.pg-rcpt tr.grp{cursor:pointer;}
+.pg-rcpt tr.grp:hover td{filter:brightness(.97);}
+.pg-rcpt .pm{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-right:8px;border:1.5px solid var(--accent);
+  border-radius:4px;background:#fff;color:var(--accent);font-size:14px;font-weight:700;line-height:1;vertical-align:middle;}
+.pg-rcpt .led-tools{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap;}
 .pg-rcpt tr.grpsum td{background:#f4f8fc;font-weight:700;border-bottom:1.5px solid var(--line);}
 .pg-rcpt .pct.up{color:var(--up);font-weight:700;}
 .pg-rcpt .pct.down{color:var(--down);font-weight:700;}
@@ -1845,7 +1850,7 @@ const rcpt={rows:[],excl:0};
 const led ={rows:[]};
 const planT={rows:[]};
 const importPlan={items:[],cur:null};
-let selYear=null, selMonth=null, openMats=new Set(), rcptCls='all';
+let selYear=null, selMonth=null, openMats=new Set(), rcptCls='all', openCls=new Set(), ledOpenCls=new Set(), ledAllMonths=false;
 let firstLoad=true;
 let ledSelYear=null, ledMetric='in', ledCls='all';
 
@@ -2161,8 +2166,9 @@ function refreshChrome(){
 
 /* ---------- 필터 ---------- */
 document.getElementById('search').addEventListener('input',renderReceipts);
-document.getElementById('expandAll').onclick=()=>{ document.querySelectorAll('.pg-rcpt tr.mat').forEach(tr=>openMats.add(tr.dataset.mat)); applyOpen(); };
-document.getElementById('collapseAll').onclick=()=>{ openMats.clear(); applyOpen(); };
+/* 모두 펼치기 = 분류(원재료·포재료·기타)를 펼침 · 거래처 내역은 자재 줄을 눌러 개별로 */
+document.getElementById('expandAll').onclick=()=>{ CLASS_ORDER.forEach(c=>openCls.add(c)); renderPivotRcpt(); };
+document.getElementById('collapseAll').onclick=()=>{ openCls.clear(); openMats.clear(); renderPivotRcpt(); };
 document.querySelectorAll('#clsSeg button').forEach(b=>{
   b.onclick=()=>{ document.querySelectorAll('#clsSeg button').forEach(x=>x.classList.remove('on'));
     b.classList.add('on'); rcptCls=b.dataset.c; renderReceipts(); };
@@ -2284,6 +2290,7 @@ function renderPivotRcpt(){
     if(r.month===selMonth){ o.mQty+=r.qty; o.mAmt+=r.amt; }
   });
   const tbody=document.getElementById('tbody'); tbody.innerHTML='';
+  const pq=document.getElementById('search').value.trim();
   const emptyMsg=document.getElementById('emptyMsg');
   if(!map.size){ emptyMsg.style.display='block'; return; }
   emptyMsg.style.display='none';
@@ -2301,13 +2308,15 @@ function renderPivotRcpt(){
     if(!grp.length) return;
     const sQ=grp.reduce((s,m)=>s+m.mQ,0), sA=grp.reduce((s,m)=>s+m.mA,0);
     const sCQ=grp.reduce((s,m)=>s+m.cQ,0), sCA=grp.reduce((s,m)=>s+m.cA,0);
+    const open=openCls.has(cls)||!!pq;        // 검색 중에는 자동으로 펼침
     const gr=document.createElement('tr'); gr.className='grp';
-    gr.innerHTML='<td class="l"></td><td class="l">'+esc(cls)+' · '+grp.length+'품목</td>'+
+    gr.onclick=()=>{ if(openCls.has(cls)) openCls.delete(cls); else openCls.add(cls); renderPivotRcpt(); };
+    gr.innerHTML='<td class="l"></td><td class="l">'+'<span class="pm">'+(open?'−':'+')+'</span>'+''+esc(cls)+' · '+grp.length+'품목</td>'+
       '<td class="zone-m">'+fmt(sQ)+'</td><td class="zone-m">'+fmt(sA)+'</td><td class="zone-m">'+unitStr(sA,sQ)+'</td><td class="zone-m">'+shareCell(sA,gmA)+'</td>'+
       '<td>'+fmt(sCQ)+'</td><td>'+fmt(sCA)+'</td><td>'+unitStr(sCA,sCQ)+'</td><td>'+shareCell(sCA,gcA)+'</td>';
     tbody.appendChild(gr);
 
-    grp.forEach(M=>{
+    if(open) grp.forEach(M=>{
       const tr=document.createElement('tr');
       tr.className='mat'+(openMats.has(M.mat)?' open':'');
       tr.dataset.mat=M.mat;
@@ -2315,9 +2324,9 @@ function renderPivotRcpt(){
         '<td class="l"><span class="chev">▶</span>'+esc(M.mat)+'<span class="sup-count">'+M.sups.length+'개사</span></td>'+
         '<td class="zone-m">'+fmt(M.mQ)+'</td><td class="zone-m">'+fmt(M.mA)+'</td><td class="zone-m">'+unitStr(M.mA,M.mQ)+'</td><td class="zone-m">'+shareCell(M.mA,sA)+'</td>'+
         '<td>'+fmt(M.cQ)+'</td><td>'+fmt(M.cA)+'</td><td>'+unitStr(M.cA,M.cQ)+'</td><td>'+shareCell(M.cA,sCA)+'</td>';
-      tr.onclick=()=>{ if(openMats.has(M.mat)) openMats.delete(M.mat); else openMats.add(M.mat); applyOpen(); };
+      tr.onclick=()=>{ if(openMats.has(M.mat)) openMats.delete(M.mat); else openMats.add(M.mat); renderPivotRcpt(); };
       tbody.appendChild(tr);
-      M.sups.forEach(o=>{
+      if(openMats.has(M.mat)) M.sups.forEach(o=>{
         const sr=document.createElement('tr');
         sr.className='sup'+(openMats.has(M.mat)?' show':'');
         sr.dataset.parent=M.mat;
@@ -2535,7 +2544,15 @@ function renderLedger(){
   const fr=led.rows.filter(r=>r.y===ledSelYear &&
     (ledCls==='all'||r.cls===ledCls) &&
     (!q||r.mat.toLowerCase().includes(q)||r.desc.toLowerCase().includes(q)||r.sup.toLowerCase().includes(q)));
-  const months=[...new Set(fr.map(r=>r.m))].sort((a,b)=>a-b);
+  const allMonths=[...new Set(fr.map(r=>r.m))].sort((a,b)=>a-b);
+  // 기본은 기준월까지의 최근 6개월만 표시 (전월 대비 계산은 전체 월 기준)
+  const LED_N=6;
+  let months=allMonths;
+  if(!ledAllMonths&&allMonths.length>LED_N){
+    const upTo=(ledSelYear===G.year)?allMonths.filter(m=>m<=G.month):allMonths;
+    months=(upTo.length?upTo:allMonths).slice(-LED_N);
+  }
+  const prevOf=m=>{ const i=allMonths.indexOf(m); return i>0?allMonths[i-1]:null; };
   const head=document.getElementById('ledHead'), body=document.getElementById('ledBody');
   const emptyEl=document.getElementById('ledEmpty');
   if(!fr.length||!months.length){
@@ -2546,6 +2563,21 @@ function renderLedger(){
   let hint=METRIC_LABEL[ledMetric]+' 기준 · 단가 = 금액 ÷ 수량 · 단가차/증감율 = 전월 대비 · 원재료(4~)·포재료(6~) 구분, 금액 큰 순';
   if(!fr.some(r=>r.sup)&&!rcpt.rows.length) hint+=' · 주요 거래처는 거래처별 입고 시트가 있으면 자재명 매칭으로 표시됩니다';
   document.getElementById('ledHint').textContent=hint;
+  let tools=document.getElementById('ledTools');
+  if(!tools){
+    tools=document.createElement('span'); tools.id='ledTools'; tools.className='led-tools';
+    document.getElementById('ledHint').parentNode.insertBefore(tools,document.getElementById('ledHint'));
+    tools.onclick=e=>{ const b=e.target.closest('button'); if(!b) return;
+      if(b.dataset.a==='months') ledAllMonths=!ledAllMonths;
+      else if(b.dataset.a==='open') CLASS_ORDER.forEach(c=>ledOpenCls.add(c));
+      else if(b.dataset.a==='close') ledOpenCls.clear();
+      renderLedger(); };
+    document.getElementById('ledBody').addEventListener('click',e=>{ const tr=e.target.closest('tr.grp'); if(!tr) return;
+      const c=tr.dataset.cls; if(ledOpenCls.has(c)) ledOpenCls.delete(c); else ledOpenCls.add(c); renderLedger(); });
+  }
+  tools.innerHTML='<button class="btn-ghost" data-a="months">'+(allMonths.length>LED_N?(ledAllMonths?'− 최근 '+LED_N+'개월만':'+ 전체 '+allMonths.length+'개월 보기'):'')+'</button>'+
+    '<button class="btn-ghost" data-a="open">+ 모두 펼치기</button><button class="btn-ghost" data-a="close">− 모두 접기</button>';
+  if(allMonths.length<=LED_N) tools.firstChild.style.display='none';
 
   const N=months.length;
   const ownSup=fr.some(r=>r.sup);
@@ -2600,8 +2632,9 @@ function renderLedger(){
   function diffCells(mo){
     return months.map((m,i)=>{
       let html='-',cls='';
-      if(i>0){
-        const cu=unitVal(mo[m]),pu=unitVal(mo[months[i-1]]);
+      const pm=prevOf(m);
+      if(pm!=null){
+        const cu=unitVal(mo[m]),pu=unitVal(mo[pm]);
         if(cu!=null&&pu!=null){
           const d=cu-pu;
           if(Math.abs(d)<0.5){ html='0'; cls='zero'; }
@@ -2614,8 +2647,9 @@ function renderLedger(){
   function pctCells(mo){
     return months.map((m,i)=>{
       let html='-',cls='zero';
-      if(i>0){
-        const cu=unitVal(mo[m]),pu=unitVal(mo[months[i-1]]);
+      const pm=prevOf(m);
+      if(pm!=null){
+        const cu=unitVal(mo[m]),pu=unitVal(mo[pm]);
         if(cu!=null&&pu!=null&&pu!==0){
           const p=(cu-pu)/pu*100;
           if(Math.abs(p)<0.05){ html='0.0%'; cls='zero'; }
@@ -2633,8 +2667,8 @@ function renderLedger(){
     return it.supCount>1?nm+' <span class="badge-multi">다거래처 · '+it.supCount+'개사</span>':nm;
   }
   function sumMon(list){
-    const t={}; months.forEach(m=>{ t[m]={q:0,a:0}; });
-    list.forEach(it=>months.forEach(m=>{ if(it.mon[m]){ t[m].q+=it.mon[m].q; t[m].a+=it.mon[m].a; } }));
+    const t={}; allMonths.forEach(m=>{ t[m]={q:0,a:0}; });
+    list.forEach(it=>allMonths.forEach(m=>{ if(it.mon[m]){ t[m].q+=it.mon[m].q; t[m].a+=it.mon[m].a; } }));
     return t;
   }
   const colSpanAll=(hasSup?3:2)+months.length*4;
@@ -2642,10 +2676,11 @@ function renderLedger(){
   CLASS_ORDER.forEach(cls=>{
     const grp=items.filter(it=>it.cls===cls).sort((a,b)=>b.total-a.total);
     if(!grp.length) return;
-    html+='<tr class="grp"><td class="grp-label l" colspan="'+(hasSup?3:2)+'">'+esc(cls)+' · '+grp.length+'품목</td>';
+    const open=ledOpenCls.has(cls)||!!q;      // 검색 중에는 자동으로 펼침
+    html+='<tr class="grp" data-cls="'+esc(cls)+'"><td class="grp-label l" colspan="'+(hasSup?3:2)+'">'+'<span class="pm">'+(open?'−':'+')+'</span>'+''+esc(cls)+' · '+grp.length+'품목</td>';
     const gm=sumMon(grp);
     html+=qtyCells(gm)+unitCells(gm)+diffCells(gm)+pctCells(gm)+'</tr>';
-    grp.forEach(it=>{
+    if(open) grp.forEach(it=>{
       const desc=cleanDesc(it.desc);
       html+='<tr>'+
         '<td class="sticky l code-cell">'+esc(it.mat)+'</td>'+
