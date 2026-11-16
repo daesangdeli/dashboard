@@ -5211,8 +5211,9 @@ window.__mkt={S,render,show,loadMkt};
 <style>
 @media (prefers-reduced-motion:no-preference){
   /* 화면 전환 */
-  .page.on{animation:fxPage .25s ease-out;}
-  @keyframes fxPage{from{opacity:0}to{opacity:1}}
+  /* 처음 열 때 화면 전체가 서서히 나타남 (탭 전환은 아래 스크립트의 switchTo) */
+  #app{animation:fxDashIn .42s cubic-bezier(.2,.7,.2,1) both;}
+  @keyframes fxDashIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   /* 작은 카드: 마우스를 올리면 살짝 뜸 */
   .pg-prod .kpi,.pg-prod .cat-card,.pg-stock .st-k,.pg-mkt .kbox,.pg-mkt .ins,.pg-mkt .wcard,.pg-team .mini,.pg-mkt .ncard,.pg-rcpt .kpi{
     transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s,border-color .15s;}
@@ -5237,7 +5238,7 @@ window.__mkt={S,render,show,loadMkt};
 "use strict";
 if(!window.matchMedia||window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 const EASE='cubic-bezier(.2,.8,.2,1)';
-const easeOut=t=>1-Math.pow(1-t,4);
+const easeOut=t=>1-Math.pow(1-t,3);
 
 /* 등장시킬 카드 · 숫자 · 막대 */
 const CARDS=['.pg-prod .card','.pg-prod .kpi','.pg-prod .cat-card','.pg-team .mini',
@@ -5258,11 +5259,12 @@ function flush(){
   let ci=0;
   batch.forEach(el=>{
     if(el.matches(CARDS)){
-      const d=Math.min(ci++*30,300);
-      el.animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'none'}],
-        {duration:420,delay:d,easing:EASE,fill:'backwards'});
-      el.querySelectorAll(NUMS).forEach(n=>countUp(n,d+150));
-      el.querySelectorAll(BARS).forEach(b=>growBar(b,d+250));
+      // 카드: 0.03초 간격(최대 0.24초)으로 살짝 떠오름 — 투명도는 건드리지 않아 화면 페이드와 겹쳐 깜빡이지 않음
+      const d=Math.min(ci++*30,240);
+      el.animate([{transform:'translateY(10px)'},{transform:'none'}],
+        {duration:500,delay:d,easing:'cubic-bezier(.2,.7,.2,1)',fill:'backwards'});
+      el.querySelectorAll(NUMS).forEach(n=>countUp(n,0));
+      el.querySelectorAll(BARS).forEach(b=>growBar(b,0));
     }else if(el.matches(NUMS)) countUp(el,0);
     else if(el.matches(BARS)) growBar(el,0);
   });
@@ -5290,7 +5292,7 @@ function countUp(el,delay){
     const pre=orig.slice(0,m.index), suf=orig.slice(m.index+m[0].length);
     let last=pre+fmt(0)+suf, st=null;
     t.nodeValue=last;
-    const dur=750;
+    const dur=600;
     function step(now){
       if(t.nodeValue!==last) return;               // 그사이 화면이 다시 그려졌으면 손 떼기
       if(st===null) st=now;
@@ -5305,7 +5307,7 @@ function countUp(el,delay){
 /* 막대 채움 */
 function growBar(b,delay){
   b.style.transformOrigin='left center';
-  b.animate([{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:700,delay:delay||0,easing:EASE,fill:'backwards'});
+  b.animate([{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:900,delay:delay||0,easing:EASE,fill:'backwards'});
 }
 
 /* 새로 그려진 요소 · 다시 열린 화면 감시 */
@@ -5337,6 +5339,39 @@ function start(){
   scan(main);
 }
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
+
+/* 탭 전환: 0.18초 동안 아래로 살짝 내려가며 사라짐 → 화면 바꾸기 → 0.38초 동안 올라오며 나타남 */
+const SWITCH='.sb-item,#tabs button,#tmTabs button,#mkViewTabs button,.mbnav button';
+let busy=false, replay=false;
+function svgFx(root){   // SVG 막대는 아래에서 위로 자람 (배경선 색은 제외)
+  const STATIC={'#e5e7eb':1,'#e9edf4':1,'transparent':1,'none':1};
+  root.querySelectorAll('#trendChart svg rect').forEach(r=>{
+    const fl=(r.getAttribute('fill')||'').toLowerCase(); if(STATIC[fl]) return;
+    const x=+r.getAttribute('x')||0,y=+r.getAttribute('y')||0,w=+r.getAttribute('width')||0,h=+r.getAttribute('height')||0;
+    r.style.transformOrigin=(x+w/2)+'px '+(y+h)+'px';
+    r.animate([{transform:'scaleY(0)'},{transform:'scaleY(1)'}],{duration:900,easing:EASE,fill:'backwards'});
+  });
+}
+document.addEventListener('click',e=>{
+  if(replay) return;
+  const t=e.target.closest&&e.target.closest(SWITCH);
+  if(!t||t.disabled) return;
+  if(busy){ e.stopPropagation(); e.preventDefault(); return; }
+  const box=document.querySelector('main.content .page.on');
+  if(!box||!box.animate||(t.classList.contains('on')&&!t.classList.contains('has-kids'))) return;   // 이미 열린 화면이면 그대로
+  e.stopPropagation(); e.preventDefault(); busy=true;
+  box.style.willChange='opacity,transform';
+  const out=box.animate([{opacity:1,transform:'none'},{opacity:0,transform:'translateY(8px)'}],{duration:180,easing:'ease-in',fill:'forwards'});
+  setTimeout(()=>{
+    try{ replay=true; t.click(); } finally { replay=false; busy=false; }
+    out.cancel(); box.style.willChange='';
+    const nb=document.querySelector('main.content .page.on'); if(!nb) return;
+    nb.style.willChange='opacity,transform';
+    const inA=nb.animate([{opacity:0,transform:'translateY(6px)'},{opacity:1,transform:'none'}],{duration:380,easing:'cubic-bezier(.2,.7,.2,1)'});
+    inA.onfinish=inA.oncancel=()=>{ nb.style.willChange=''; };
+    svgFx(nb);
+  },180);
+},true);
 
 /* 버튼 물결 */
 document.addEventListener('pointerdown',e=>{
