@@ -5291,6 +5291,7 @@ const mo=new MutationObserver(list=>{
       }
       return;
     }
+    if(m.target.closest&&m.target.closest('table,.pg-rcpt')) return;   // 큰 표 안쪽·입고 화면은 감시 제외 (속도)
     m.addedNodes.forEach(n=>{ if(n.nodeType===1) pending.add(n); });
   });
   if(!raf) raf=requestAnimationFrame(()=>{ raf=0; const s=[...pending]; pending.clear(); s.forEach(scan); });
@@ -5649,6 +5650,28 @@ window.__raw={S,parse,render,show};
 })();
 </script>
 
+<!-- ===== 속도 개선: 거래처별 입고 화면은 '지금 보이는 탭'만 그리고, 나머지는 열 때 그림 ===== -->
+<style>
+.pg-rcpt .table-scroll{contain:layout paint;}
+</style>
+<script>
+(function(){
+"use strict";
+const MAP={renderPivotRcpt:'view-pivot',renderInsight:'view-insight',renderVendorInfo:'view-vendor',renderLedger:'view-ledger'};
+const dirty={};
+Object.keys(MAP).forEach(name=>{
+  const orig=window[name]; if(typeof orig!=='function') return;
+  window[name]=function(){
+    const v=document.getElementById(MAP[name]);
+    if(v&&v.offsetParent===null){ dirty[name]=true; return; }     // 숨겨진 탭 → 나중에
+    dirty[name]=false; return orig.apply(this,arguments);
+  };
+});
+function flush(){ Object.keys(MAP).forEach(name=>{ if(!dirty[name]) return; const v=document.getElementById(MAP[name]); if(v&&v.offsetParent!==null) window[name](); }); }
+document.addEventListener('click',e=>{ if(e.target.closest&&e.target.closest('.sb-item,#tabs button')) setTimeout(flush,0); });
+window.__perf={dirty,flush};
+})();
+</script>
 <script>
 /* MOBILE PATCH: 기존 메뉴/데이터 처리에는 손대지 않고 접기 동작만 추가합니다. */
 (function initMobileMenu(){
