@@ -31,6 +31,8 @@ NEWS_QUERIES = {
               '선진 육가공', '진주햄', '에쓰푸드', '도드람'],
     '외식·프랜차이즈': ['외식업 동향', '외식 물가', '외식 프랜차이즈', '프랜차이즈 가맹점', '프랜차이즈 가격 인상', '외식산업 경기', '치킨 프랜차이즈', '삼겹살 외식'],
     '급식·산업체': ['단체급식', '급식업체', '구내식당 식자재', '산업체 급식', '학교급식 식재료', '급식 식자재 가격', '푸드서비스 시장'],
+    '해외 돈육 시황': ['미국 돼지고기 가격', '미국 돈육 시세', '유럽 돼지 가격', '스페인 돼지고기', '독일 돼지 가격',
+                    '브라질 돼지고기 수출', '중국 돼지고기 수입', '돈육 선물', '국제 돼지고기 가격', '해외 돼지고기 시황', '글로벌 돈육 시장'],
     '수입 목전지': ['수입 목전지', '수입 돼지고기', '수입육', '돼지고기 수입량', '돼지고기 할당관세', '수입 돈육 재고', '미국산 돼지고기', '스페인산 돼지고기', '냉동 돼지고기 재고'],
 }
 # 제목에 아래 단어가 하나도 없으면 해당 분류에서 제외 (검색 결과의 엉뚱한 기사 거르기)
@@ -41,6 +43,7 @@ RELEVANT = {
     '경쟁사': r'CJ|씨제이|제일제당|롯데웰푸드|롯데햄|동원|대상|청정원|사조|대림|하림|목우촌|선진|진주햄|에쓰푸드|도드람|팜스코|이지바이오|농협',
     '외식·프랜차이즈': r'외식|프랜차이즈|가맹|치킨|음식점|식당|배달|자영업|외식업|요식',
     '급식·산업체': r'급식|구내식당|단체급식|푸드서비스|식자재|식재료|산업체|케이터링|아워홈|CJ프레시웨이|삼성웰스토리|현대그린푸드|신세계푸드',
+    '해외 돈육 시황': r'(미국|美|유럽|EU|스페인|독일|덴마크|네덜란드|브라질|칠레|캐나다|멕시코|중국|中|일본|베트남|필리핀|글로벌|국제|해외|세계).{0,20}(돼지|돈육|돈가|양돈|삼겹|목전지|돼지고기)|(돼지|돈육|돈가|양돈|돼지고기).{0,20}(미국|유럽|EU|스페인|독일|브라질|중국|국제|해외|세계|선물|수출)',
     '수입 목전지': r'목전지|수입 ?(돼지|돈육|삼겹|육|산 ?돼지)|(돼지고기|돈육|삼겹살) ?수입|수입육|냉동육|할당관세|(미국|스페인|독일|칠레|캐나다|브라질|네덜란드|덴마크|멕시코|오스트리아)산 ?(돼지|돈육|삼겹)|(돼지|돈육|냉동).{0,10}재고',
 }
 
@@ -48,6 +51,41 @@ RELEVANT = {
 CROSS_TAG = {
     '수입 목전지': r'목전지|수입 ?(돼지|돈육|삼겹|육|산 ?돼지)|(돼지고기|돈육|삼겹살|돈육) ?수입|수입육|냉동육|할당관세|(미국|스페인|독일|칠레|캐나다|브라질|네덜란드|덴마크|멕시코|오스트리아)산 ?(돼지|돈육|삼겹)',
 }
+
+# 해외 원문(영문) 기사 — 제목은 영어 그대로, 한국어 용어 풀이를 붙임 (번역 아님)
+# (검색어, 한국어 설명, 함께 넣을 분류)
+EN_QUERIES = [
+    ('pork picnic price', '미국 목전지(Picnic) 시세', ['해외 돈육 시황', '수입 목전지']),
+    ('pork shoulder prices', '목전지·목심(Shoulder) 가격', ['해외 돈육 시황', '수입 목전지']),
+    ('USDA pork cutout', '미국 돈육 부분육 시세(USDA Cutout)', ['해외 돈육 시황']),
+    ('lean hog futures', '미국 돈육 선물(CME Lean Hog)', ['해외 돈육 시황']),
+    ('EU pig prices', '유럽 돼지 가격', ['해외 돈육 시황']),
+    ('Spain pork exports', '스페인 돼지고기 수출', ['해외 돈육 시황', '수입 목전지']),
+    ('US pork exports Korea', '미국산 돼지고기 대한(對韓) 수출', ['해외 돈육 시황', '수입 목전지']),
+    ('China pork imports', '중국 돼지고기 수입', ['해외 돈육 시황']),
+    ('Brazil pork exports', '브라질 돼지고기 수출', ['해외 돈육 시황']),
+]
+EN_RELEVANT = r'pork|hog|pig|swine|picnic|\bham\b|belly|cutout'
+# 제목 속 영어 용어 → 한국어 풀이
+EN_GLOSSARY = [
+    (r'picnic', '목전지(Picnic)'), (r'shoulder', '전지·목심(Shoulder)'), (r'\bbutt\b', '목심(Butt)'),
+    (r'belly|bellies', '삼겹(Belly)'), (r'\bloin', '등심(Loin)'), (r'\bhams?\b', '후지·햄(Ham)'), (r'\bribs?\b', '갈비(Rib)'),
+    (r'\btrim', '잡육(Trim)'), (r'cutout', '부분육 합산가(Cutout)'), (r'lean hog', '돈육 선물(Lean Hog)'), (r'(?<!hog )futures', '선물'),
+    (r'export', '수출'), (r'import', '수입'), (r'tariff|\bdut(y|ies)\b', '관세'), (r'cold storage|stocks|inventor', '재고'),
+    (r'african swine fever|\basf\b', '아프리카돼지열병'), (r'slaughter', '도축'), (r'\bprices?\b', '가격'),
+    (r'china|chinese', '중국'), (r'spain|spanish', '스페인'), (r'germany|german', '독일'), (r'\beu\b|europe', '유럽'),
+    (r'brazil', '브라질'), (r'canada|canadian', '캐나다'), (r'mexico', '멕시코'), (r'japan', '일본'), (r'korea', '한국'),
+    (r'usda|\bu\.s\.|\bus\b|united states|american', '미국'), (r'denmark|danish', '덴마크'), (r'netherlands|dutch', '네덜란드'),
+]
+
+
+def en_gloss(title):
+    seen, out = set(), []
+    for rx, ko in EN_GLOSSARY:
+        if ko not in seen and re.search(rx, title, re.I):
+            seen.add(ko)
+            out.append(ko)
+    return out[:6]
 
 
 def fetch(url, headers=None, data=None, timeout=30):
@@ -332,9 +370,9 @@ def clean_title(t, source):
     return t
 
 
-def google_news(query):
-    url = ('https://news.google.com/rss/search?q=' + urllib.parse.quote(query + ' when:7d')
-           + '&hl=ko&gl=KR&ceid=KR:ko')
+def google_news(query, lang='ko'):
+    loc = '&hl=en-US&gl=US&ceid=US:en' if lang == 'en' else '&hl=ko&gl=KR&ceid=KR:ko'
+    url = 'https://news.google.com/rss/search?q=' + urllib.parse.quote(query + ' when:7d') + loc
     root = ET.fromstring(fetch(url))
     out = []
     for it in root.findall('./channel/item'):
@@ -400,13 +438,40 @@ def collect_news():
                 seen[k] = n
                 items.append(n)
             time.sleep(0.4)
+    # 영문 원문 기사 (해외 시황) — 검색어마다 최근 6건
+    for q, ko, cats in EN_QUERIES:
+        try:
+            got = google_news(q, 'en')
+        except Exception as e:
+            errors.append(f'{q}: {e}')
+            continue
+        kept = 0
+        for n in got:
+            if kept >= 6 or datetime.fromisoformat(n['ts']) < cutoff:
+                continue
+            if not re.search(EN_RELEVANT, n['title'], re.I) or FOREIGN.search(n['source'] or ''):
+                continue
+            k = norm_key(n['title'])
+            if k in seen:
+                it = seen[k]
+                for c in cats:
+                    if c not in it['cats']:
+                        it['cats'].append(c)
+                continue
+            terms = en_gloss(n['title'])
+            n.update({'cats': list(cats), 'kw': [ko], 'lang': 'en',
+                      'desc': '[영문 원문] ' + ko + (' · 제목 속 용어: ' + ', '.join(terms) if terms else '')})
+            seen[k] = n
+            items.append(n)
+            kept += 1
+        time.sleep(0.4)
     # 다른 분류 검색어로 들어온 기사도 제목이 맞으면 함께 묶기 (예: '수입 돼지고기' → 수입 목전지)
     for it in items:
         for cat, rx in CROSS_TAG.items():
             if cat not in it['cats'] and re.search(rx, it['title']):
                 it['cats'].append(cat)
     items.sort(key=lambda x: x['ts'], reverse=True)
-    return {'provider': provider, 'items': items[:400], 'errors': errors}
+    return {'provider': provider, 'items': items[:480], 'errors': errors}
 
 
 # ---------------------------------------------------------------- 저장
