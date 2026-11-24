@@ -4751,6 +4751,7 @@ window.__tm={S,parse,render,show,loadTeam};
 .pg-mkt .dots i.on{width:20px;background:var(--violet);}
 
 /* 뉴스 */
+.pg-mkt .ncard .en-b{display:inline-block;margin-right:6px;padding:1px 6px;border-radius:6px;background:#EEF2FF;color:#4338CA;font-weight:800;font-size:.68rem;vertical-align:1px;}
 .pg-mkt .news{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 18px 20px;box-shadow:0 1px 3px rgba(17,24,39,.05);}
 .pg-mkt .news-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
 .pg-mkt .ntab{border:0;background:var(--bg2);color:var(--ink2);font:inherit;font-size:.82rem;font-weight:700;padding:8px 13px;border-radius:9px;cursor:pointer;}
@@ -4898,7 +4899,7 @@ window.__tm={S,parse,render,show,loadTeam};
 /* 데이터: GitHub Actions(scripts/collect_market.py)가 3시간마다 갱신하는 data/*.json */
 const RAW='https://raw.githubusercontent.com/daesangdeli/dashboard/main/data/';
 const SPECIES=[{k:'돼지',ic:'🐖'},{k:'한우',ic:'🐄'},{k:'육계',ic:'🐔'},{k:'계란',ic:'🥚'}];
-const NEWS_CATS=['축산','육가공','식품업계','경쟁사','외식·프랜차이즈','급식·산업체','수입 목전지'];
+const NEWS_CATS=['축산','육가공','식품업계','경쟁사','외식·프랜차이즈','급식·산업체','수입 목전지','해외 돈육 시황'];
 const S={market:null,news:null,view:'insight',species:'돼지',ncat:'all',nfilter:null,nq:'',nall:false,nlimit:24,charts:{},err:{}};
 const el=id=>document.getElementById(id);
 const escH=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -5004,7 +5005,7 @@ function newsList(){
   return L;
 }
 function ncard(n){
-  return '<a class="ncard" href="'+escH(n.link)+'" target="_blank" rel="noopener"><div class="c">'+escH(n.cats.join(' · '))+'</div>'+
+  return '<a class="ncard'+(n.lang==='en'?' en':'')+'" href="'+escH(n.link)+'" target="_blank" rel="noopener"><div class="c">'+(n.lang==='en'?'<span class="en-b">영문</span>':'')+escH(n.cats.join(' · '))+'</div>'+
     '<div class="t">'+escH(n.title)+'</div>'+(n.desc?'<div class="d">'+escH(n.desc)+'</div>':'')+
     '<div class="f"><b>'+escH(n.source||'')+'</b><span>'+escH(ago(n.ts))+'</span>'+n.kw.slice(0,2).map(k=>'<span class="k">'+escH(k)+'</span>').join('')+'</div></a>';
 }
