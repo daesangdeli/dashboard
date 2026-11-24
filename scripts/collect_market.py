@@ -44,12 +44,12 @@ RELEVANT = {
     '외식·프랜차이즈': r'외식|프랜차이즈|가맹|치킨|음식점|식당|배달|자영업|외식업|요식',
     '급식·산업체': r'급식|구내식당|단체급식|푸드서비스|식자재|식재료|산업체|케이터링|아워홈|CJ프레시웨이|삼성웰스토리|현대그린푸드|신세계푸드',
     '해외 돈육 시황': r'(미국|美|유럽|EU|스페인|독일|덴마크|네덜란드|브라질|칠레|캐나다|멕시코|중국|中|일본|베트남|필리핀|글로벌|국제|해외|세계).{0,20}(돼지|돈육|돈가|양돈|삼겹|목전지|돼지고기)|(돼지|돈육|돈가|양돈|돼지고기).{0,20}(미국|유럽|EU|스페인|독일|브라질|중국|국제|해외|세계|선물|수출)',
-    '수입 목전지': r'목전지|수입 ?(돼지|돈육|삼겹|육|산 ?돼지)|(돼지고기|돈육|삼겹살) ?수입|수입육|냉동육|할당관세|(미국|스페인|독일|칠레|캐나다|브라질|네덜란드|덴마크|멕시코|오스트리아)산 ?(돼지|돈육|삼겹)|(돼지|돈육|냉동).{0,10}재고',
+    '수입 목전지': r'목전지|수입 ?(돼지|돈육|삼겹|산 ?돼지)|(돼지고기|돈육|삼겹살) ?수입|(돼지|돈육).{0,10}할당관세|할당관세.{0,10}(돼지|돈육)|(미국|스페인|독일|칠레|캐나다|브라질|네덜란드|덴마크|멕시코|오스트리아)산 ?(돼지|돈육|삼겹)|(돼지|돈육|냉동).{0,10}재고',
 }
 
 # 검색어와 상관없이 제목만 보고 추가로 묶을 분류
 CROSS_TAG = {
-    '수입 목전지': r'목전지|수입 ?(돼지|돈육|삼겹|육|산 ?돼지)|(돼지고기|돈육|삼겹살|돈육) ?수입|수입육|냉동육|할당관세|(미국|스페인|독일|칠레|캐나다|브라질|네덜란드|덴마크|멕시코|오스트리아)산 ?(돼지|돈육|삼겹)',
+    '수입 목전지': r'목전지|수입 ?(돼지|돈육|삼겹|산 ?돼지)|(돼지고기|돈육|삼겹살) ?수입|(돼지|돈육).{0,10}할당관세|할당관세.{0,10}(돼지|돈육)|(미국|스페인|독일|칠레|캐나다|브라질|네덜란드|덴마크|멕시코|오스트리아)산 ?(돼지|돈육|삼겹)',
 }
 
 # 해외 원문(영문) 기사 — 제목은 영어 그대로, 한국어 용어 풀이를 붙임 (번역 아님)
@@ -85,31 +85,48 @@ KO_FIX = [
 ]
 
 
-TRANSLATE_OK = True
+TRANSLATE_DEAD = set()   # 이번 수집에서 막힌 번역 주소
+
+
+def _tr_google(text):
+    url = ('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q='
+           + urllib.parse.quote(text))
+    req = urllib.request.Request(url, headers={'User-Agent': UA})
+    with urllib.request.urlopen(req, timeout=10, context=ssl.create_default_context()) as r:
+        data = json.loads(r.read().decode('utf-8'))
+    return ''.join(seg[0] for seg in data[0] if seg and seg[0]).strip()
+
+
+def _tr_mymemory(text):
+    url = 'https://api.mymemory.translated.net/get?langpair=en%7Cko&q=' + urllib.parse.quote(text[:450])
+    req = urllib.request.Request(url, headers={'User-Agent': UA})
+    with urllib.request.urlopen(req, timeout=15, context=ssl.create_default_context()) as r:
+        data = json.loads(r.read().decode('utf-8'))
+    if str(data.get('responseStatus')) != '200':
+        raise RuntimeError(data.get('responseDetails') or data.get('responseStatus'))
+    return html.unescape((data.get('responseData') or {}).get('translatedText') or '').strip()
+
+
+TRANSLATORS = [('google', _tr_google), ('mymemory', _tr_mymemory)]
 
 
 def translate_ko(text):
-    """영문 제목 → 한국어 (구글 번역 공개 주소, 실패하면 None)."""
-    global TRANSLATE_OK
-    if not TRANSLATE_OK:
-        return None
-    url = ('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q='
-           + urllib.parse.quote(text))
-    try:  # 재시도 없이 한 번만 — 실패하면 이번 수집에서는 번역 중단 (영문 그대로)
-        req = urllib.request.Request(url, headers={'User-Agent': UA})
-        with urllib.request.urlopen(req, timeout=10, context=ssl.create_default_context()) as r:
-            data = json.loads(r.read().decode('utf-8'))
-        ko = ''.join(seg[0] for seg in data[0] if seg and seg[0]).strip()
-        time.sleep(0.3)
-    except Exception as e:
-        print('번역 중단:', e)
-        TRANSLATE_OK = False
-        return None
-    if not ko or not re.search(r'[가-힣]', ko):
-        return None
-    for rx, rep in KO_FIX:
-        ko = re.sub(rx, rep, ko)
-    return ko
+    """영문 제목 → 한국어. 구글이 막히면 MyMemory, 둘 다 안 되면 None (영문 그대로)."""
+    for name, fn in TRANSLATORS:
+        if name in TRANSLATE_DEAD:
+            continue
+        try:  # 주소마다 재시도 없이 한 번 — 막히면 이번 수집에서는 그 주소 건너뜀
+            ko = fn(text)
+            time.sleep(0.3)
+        except Exception as e:
+            print('번역 실패(' + name + '):', e)
+            TRANSLATE_DEAD.add(name)
+            continue
+        if ko and re.search(r'[가-힣]', ko):
+            for rx, rep in KO_FIX:
+                ko = re.sub(rx, rep, ko)
+            return ko
+    return None
 
 
 def load_translation_cache():
@@ -502,7 +519,9 @@ def collect_news():
                 continue
             k = norm_key(n['title'])
             # 수입 목전지 탭은 제목이 부위·대한 수입과 관련될 때만
-            cs = [c for c in cats if c != '수입 목전지' or EN_TO_IMPORT.search(n['title'])]
+            cs = [c for c in cats if c != '수입 목전지']
+            if EN_TO_IMPORT.search(n['title']):
+                cs.append('수입 목전지')
             if k in seen:
                 it = seen[k]
                 for c in cs:
