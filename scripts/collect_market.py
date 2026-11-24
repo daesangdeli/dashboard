@@ -360,7 +360,13 @@ def collect_kape_main():
 
 
 # ---------------------------------------------------------------- 뉴스
-FOREIGN = re.compile(r'vietnam\.vn|roughnecks|\.vn$|yahoo|msn|indexbox', re.I)
+FOREIGN = re.compile(r'vietnam\.vn|roughnecks|\.vn$|yahoo|msn|indexbox|toss\.im|coupang|11st|gmarket|auction\.co|smartstore', re.I)
+# 쇼핑몰 상품명 (예: '삼겹살, 500g, 1개') 거르기
+SHOP = re.compile(r'\d+ ?(g|kg|개|팩|세트)\s*,|, ?\d+ ?(g|kg|개|팩|세트)\b')
+# 영문: 한국산 수출 기사 (해외 시황·수입 목전지와 무관) 거르기
+EN_EXCLUDE = re.compile(r'jeju|hanwoo|korean (pork|beef)|korea.{0,25}export|exports? (from|of) korea', re.I)
+# 영문 기사 중 수입 목전지 탭에도 넣을 제목 (부위·대한 수입 관련)
+EN_TO_IMPORT = re.compile(r'picnic|shoulder|\bbutt\b|(to|into) (south )?korea|korea.{0,25}import', re.I)
 
 
 def clean_title(t, source):
@@ -420,7 +426,7 @@ def collect_news():
                 errors.append(f'{q}: {e}')
                 continue
             for n in got:
-                if not re.search(r'[가-힣]', n['title']) or FOREIGN.search(n['source'] or ''):
+                if not re.search(r'[가-힣]', n['title']) or FOREIGN.search(n['source'] or '') or FOREIGN.search(n.get('link') or '') or SHOP.search(n['title']):
                     continue
                 if datetime.fromisoformat(n['ts']) < cutoff:
                     continue
@@ -449,18 +455,21 @@ def collect_news():
         for n in got:
             if kept >= 6 or datetime.fromisoformat(n['ts']) < cutoff:
                 continue
-            if not re.search(EN_RELEVANT, n['title'], re.I) or FOREIGN.search(n['source'] or ''):
+            if not re.search(EN_RELEVANT, n['title'], re.I) or FOREIGN.search(n['source'] or '') or EN_EXCLUDE.search(n['title']):
                 continue
             k = norm_key(n['title'])
+            # 수입 목전지 탭은 제목이 부위·대한 수입과 관련될 때만
+            cs = [c for c in cats if c != '수입 목전지' or EN_TO_IMPORT.search(n['title'])]
             if k in seen:
                 it = seen[k]
-                for c in cats:
+                for c in cs:
                     if c not in it['cats']:
                         it['cats'].append(c)
                 continue
             terms = en_gloss(n['title'])
-            n.update({'cats': list(cats), 'kw': [ko], 'lang': 'en',
-                      'desc': '[영문 원문] ' + ko + (' · 제목 속 용어: ' + ', '.join(terms) if terms else '')})
+            # 설명은 기사 제목에서 뽑은 용어만 (검색어를 기사 내용처럼 쓰지 않음)
+            n.update({'cats': cs, 'kw': ['검색: ' + ko], 'lang': 'en',
+                      'desc': '[영문 원문] ' + ('제목 속 용어: ' + ', '.join(terms) if terms else '한국어 용어 풀이 없음')})
             seen[k] = n
             items.append(n)
             kept += 1
