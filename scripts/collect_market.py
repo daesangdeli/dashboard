@@ -78,6 +78,48 @@ EN_GLOSSARY = [
     (r'usda|\bu\.s\.|\bus\b|united states|american', '미국'), (r'denmark|danish', '덴마크'), (r'netherlands|dutch', '네덜란드'),
 ]
 
+# 번역 뒤 축산 용어 바로잡기 (기계번역이 일반 뜻으로 옮기는 단어)
+KO_FIX = [
+    (r'소풍|피크닉', '목전지'), (r'컷아웃|절단(가|가격)?', '부분육 시세'), (r'(린|살코기|마른|날씬한) ?(돼지|호그)(\s?선물)?', '돈육 선물'),
+    (r'돼지 선물', '돈육 선물'), (r'호그', '돼지'), (r'돼지 어깨', '돼지 전지'), (r'어깨살', '전지'), (r'뱃살', '삼겹'),
+]
+
+
+TRANSLATE_OK = True
+
+
+def translate_ko(text):
+    """영문 제목 → 한국어 (구글 번역 공개 주소, 실패하면 None)."""
+    global TRANSLATE_OK
+    if not TRANSLATE_OK:
+        return None
+    url = ('https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q='
+           + urllib.parse.quote(text))
+    try:  # 재시도 없이 한 번만 — 실패하면 이번 수집에서는 번역 중단 (영문 그대로)
+        req = urllib.request.Request(url, headers={'User-Agent': UA})
+        with urllib.request.urlopen(req, timeout=10, context=ssl.create_default_context()) as r:
+            data = json.loads(r.read().decode('utf-8'))
+        ko = ''.join(seg[0] for seg in data[0] if seg and seg[0]).strip()
+        time.sleep(0.3)
+    except Exception as e:
+        print('번역 중단:', e)
+        TRANSLATE_OK = False
+        return None
+    if not ko or not re.search(r'[가-힣]', ko):
+        return None
+    for rx, rep in KO_FIX:
+        ko = re.sub(rx, rep, ko)
+    return ko
+
+
+def load_translation_cache():
+    """지난번에 번역한 제목은 다시 번역하지 않음."""
+    try:
+        old = json.load(open(os.path.join(OUT_DIR, 'news.json'), encoding='utf-8'))
+        return {i['title_en']: i['title'] for i in old.get('items', []) if i.get('title_en') and i.get('title')}
+    except Exception:
+        return {}
+
 
 def en_gloss(title):
     seen, out = set(), []
@@ -360,7 +402,13 @@ def collect_kape_main():
 
 
 # ---------------------------------------------------------------- 뉴스
-FOREIGN = re.compile(r'vietnam\.vn|roughnecks|\.vn$|yahoo|msn|indexbox', re.I)
+FOREIGN = re.compile(r'vietnam\.vn|roughnecks|\.vn$|yahoo|msn|indexbox|toss\.im|coupang|11st|gmarket|auction\.co|smartstore|tridge', re.I)
+# 쇼핑몰 상품명 (예: '삼겹살, 500g, 1개') 거르기
+SHOP = re.compile(r'\d+ ?(g|kg|개|팩|세트)\s*,|, ?\d+ ?(g|kg|개|팩|세트)\b')
+# 영문: 한국산 수출 기사 (해외 시황·수입 목전지와 무관) 거르기
+EN_EXCLUDE = re.compile(r'jeju|hanwoo|korean (pork|beef)|korea.{0,25}export|exports? (from|of) korea', re.I)
+# 영문 기사 중 수입 목전지 탭에도 넣을 제목 (부위·대한 수입 관련)
+EN_TO_IMPORT = re.compile(r'picnic|shoulder|\bbutt\b|cutout|pork (exports?|imports?|prices?|market)|(to|into) (south )?korea|korea.{0,25}import', re.I)
 
 
 def clean_title(t, source):
@@ -420,7 +468,7 @@ def collect_news():
                 errors.append(f'{q}: {e}')
                 continue
             for n in got:
-                if not re.search(r'[가-힣]', n['title']) or FOREIGN.search(n['source'] or ''):
+                if not re.search(r'[가-힣]', n['title']) or FOREIGN.search(n['source'] or '') or FOREIGN.search(n.get('link') or '') or SHOP.search(n['title']):
                     continue
                 if datetime.fromisoformat(n['ts']) < cutoff:
                     continue
@@ -438,7 +486,8 @@ def collect_news():
                 seen[k] = n
                 items.append(n)
             time.sleep(0.4)
-    # 영문 원문 기사 (해외 시황) — 검색어마다 최근 6건
+    # 영문 원문 기사 (해외 시황) — 검색어마다 최근 6건, 제목은 한국어로 번역
+    tcache = load_translation_cache()
     for q, ko, cats in EN_QUERIES:
         try:
             got = google_news(q, 'en')
@@ -449,18 +498,26 @@ def collect_news():
         for n in got:
             if kept >= 6 or datetime.fromisoformat(n['ts']) < cutoff:
                 continue
-            if not re.search(EN_RELEVANT, n['title'], re.I) or FOREIGN.search(n['source'] or ''):
+            if not re.search(EN_RELEVANT, n['title'], re.I) or FOREIGN.search(n['source'] or '') or EN_EXCLUDE.search(n['title']):
                 continue
             k = norm_key(n['title'])
+            # 수입 목전지 탭은 제목이 부위·대한 수입과 관련될 때만
+            cs = [c for c in cats if c != '수입 목전지' or EN_TO_IMPORT.search(n['title'])]
             if k in seen:
                 it = seen[k]
-                for c in cats:
+                for c in cs:
                     if c not in it['cats']:
                         it['cats'].append(c)
                 continue
             terms = en_gloss(n['title'])
-            n.update({'cats': list(cats), 'kw': [ko], 'lang': 'en',
-                      'desc': '[영문 원문] ' + ko + (' · 제목 속 용어: ' + ', '.join(terms) if terms else '')})
+            en_title = n['title']
+            ko_title = tcache.get(en_title) or translate_ko(en_title)
+            if ko_title:
+                tcache[en_title] = ko_title
+            # 설명: 원문 제목 + 제목 속 용어 (검색어를 기사 내용처럼 쓰지 않음)
+            n.update({'cats': cs, 'kw': ['검색: ' + ko], 'lang': 'en',
+                      'title': ko_title or en_title, 'title_en': en_title, 'translated': bool(ko_title),
+                      'desc': '원문: ' + en_title + (' · 용어: ' + ', '.join(terms) if terms else '')})
             seen[k] = n
             items.append(n)
             kept += 1

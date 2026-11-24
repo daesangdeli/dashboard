@@ -4751,6 +4751,10 @@ window.__tm={S,parse,render,show,loadTeam};
 .pg-mkt .dots i.on{width:20px;background:var(--violet);}
 
 /* 뉴스 */
+.pg-mkt .nreg{display:inline-flex;gap:2px;padding:3px;border-radius:10px;background:#F3F4F6;margin-left:4px;}
+.pg-mkt .nreg button{border:0;background:transparent;border-radius:8px;padding:5px 10px;font:inherit;font-size:.76rem;font-weight:700;color:#6B7280;cursor:pointer;}
+.pg-mkt .nreg button.on{background:#fff;color:#111827;box-shadow:0 1px 2px rgba(16,24,40,.08);}
+.pg-mkt .nreg button i{font-style:normal;margin-left:4px;color:#9CA3AF;font-weight:600;}
 .pg-mkt .ncard .en-b{display:inline-block;margin-right:6px;padding:1px 6px;border-radius:6px;background:#EEF2FF;color:#4338CA;font-weight:800;font-size:.68rem;vertical-align:1px;}
 .pg-mkt .news{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 18px 20px;box-shadow:0 1px 3px rgba(17,24,39,.05);}
 .pg-mkt .news-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
@@ -4996,16 +5000,20 @@ function railGo(i){
 }
 
 /* ---------- 뉴스 ---------- */
+/* 수입 목전지: 국내 / 해외 뉴스 나누기 — 해외 = 해외 언론(번역) 기사 + 해외 시장을 다룬 국내 기사 */
+const REGION_CAT='수입 목전지';
+function isOverseas(n){ return n.lang==='en'||n.cats.indexOf('해외 돈육 시황')>=0; }
 function newsList(){
   let L=S.news?S.news.items:[];
   if(S.ncat!=='all') L=L.filter(n=>n.cats.indexOf(S.ncat)>=0);
+  if(S.ncat===REGION_CAT&&S.nregion&&S.nregion!=='all') L=L.filter(n=>S.nregion==='ov'?isOverseas(n):!isOverseas(n));
   if(S.nfilter) L=L.filter(n=>S.nfilter.re.test(n.title));
   const q=S.nq.trim().toLowerCase();
   if(q) L=L.filter(n=>(n.title+' '+(n.desc||'')+' '+n.source).toLowerCase().indexOf(q)>=0);
   return L;
 }
 function ncard(n){
-  return '<a class="ncard'+(n.lang==='en'?' en':'')+'" href="'+escH(n.link)+'" target="_blank" rel="noopener"><div class="c">'+(n.lang==='en'?'<span class="en-b">영문</span>':'')+escH(n.cats.join(' · '))+'</div>'+
+  return '<a class="ncard'+(n.lang==='en'?' en':'')+'" href="'+escH(n.link)+'" target="_blank" rel="noopener"><div class="c">'+(n.lang==='en'?'<span class="en-b">'+(n.translated?'해외·번역':'영문')+'</span>':'')+escH(n.cats.join(' · '))+'</div>'+
     '<div class="t">'+escH(n.title)+'</div>'+(n.desc?'<div class="d">'+escH(n.desc)+'</div>':'')+
     '<div class="f"><b>'+escH(n.source||'')+'</b><span>'+escH(ago(n.ts))+'</span>'+n.kw.slice(0,2).map(k=>'<span class="k">'+escH(k)+'</span>').join('')+'</div></a>';
 }
@@ -5013,6 +5021,9 @@ function renderNews(){
   const all=S.news?S.news.items:[];
   const cnt=c=>c==='all'?all.length:all.filter(n=>n.cats.indexOf(c)>=0).length;
   el('mkNewsTabs').innerHTML=['all'].concat(NEWS_CATS).map(c=>'<button class="ntab'+(S.ncat===c?' on':'')+'" data-act="ncat" data-v="'+c+'">'+(c==='all'?'전체':c)+'<i>'+cnt(c)+'</i></button>').join('')+
+    (S.ncat===REGION_CAT?(()=>{ const base=all.filter(n=>n.cats.indexOf(REGION_CAT)>=0), ov=base.filter(isOverseas).length;
+      return '<span class="nreg">'+[['all','전체',base.length],['kr','국내 뉴스',base.length-ov],['ov','해외 뉴스',ov]].map(r=>
+        '<button class="'+((S.nregion||'all')===r[0]?'on':'')+'" data-act="nregion" data-v="'+r[0]+'">'+r[1]+'<i>'+r[2]+'</i></button>').join('')+'</span>'; })():'')+
     (S.nfilter?'<span class="nfilter">'+escH(S.nfilter.label)+' 관련<button data-act="nclear" title="필터 해제">×</button></span>':'');
   const L=newsList();
   el('mkNewsAll').textContent=S.nall?'접기':'모두 보기';
@@ -5120,7 +5131,8 @@ function show(view){
 function act(a,v,t){
   if(a==='view'){ S.view=v; syncNav(); render(); return; }
   if(a==='sp'){ S.species=v; renderSupply(); return; }
-  if(a==='ncat'){ S.ncat=v; S.nlimit=24; renderNews(); return; }
+  if(a==='ncat'){ S.ncat=v; S.nregion='all'; S.nlimit=24; renderNews(); return; }
+  if(a==='nregion'){ S.nregion=v; S.nlimit=24; renderNews(); return; }
   if(a==='nclear'){ S.nfilter=null; renderNews(); return; }
   if(a==='nall'){ S.nall=!S.nall; S.nlimit=24; renderNews(); return; }
   if(a==='nmore'){ S.nlimit+=24; renderNews(); return; }
