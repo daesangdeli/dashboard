@@ -4898,7 +4898,7 @@ window.__tm={S,parse,render,show,loadTeam};
 /* 데이터: GitHub Actions(scripts/collect_market.py)가 3시간마다 갱신하는 data/*.json */
 const RAW='https://raw.githubusercontent.com/daesangdeli/dashboard/main/data/';
 const SPECIES=[{k:'돼지',ic:'🐖'},{k:'한우',ic:'🐄'},{k:'육계',ic:'🐔'},{k:'계란',ic:'🥚'}];
-const NEWS_CATS=['축산','육가공','식품업계','경쟁사'];
+const NEWS_CATS=['축산','육가공','식품업계','경쟁사','외식·프랜차이즈','급식·산업체','수입 목전지'];
 const S={market:null,news:null,view:'insight',species:'돼지',ncat:'all',nfilter:null,nq:'',nall:false,nlimit:24,charts:{},err:{}};
 const el=id=>document.getElementById(id);
 const escH=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -5212,14 +5212,16 @@ window.__mkt={S,render,show,loadMkt};
 @media (prefers-reduced-motion:no-preference){
   /* 화면 전환 */
   /* 처음 열 때 화면 전체가 서서히 나타남 (탭 전환은 아래 스크립트의 switchTo) */
-  #app{animation:fxDashIn .42s cubic-bezier(.2,.7,.2,1) both;}
-  @keyframes fxDashIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  #app{animation:fxDashIn .6s cubic-bezier(.22,1,.36,1) both;}
+  @keyframes fxDashIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
   /* 작은 카드: 마우스를 올리면 살짝 뜸 */
   .pg-prod .kpi,.pg-prod .cat-card,.pg-stock .st-k,.pg-mkt .kbox,.pg-mkt .ins,.pg-mkt .wcard,.pg-team .mini,.pg-mkt .ncard,.pg-rcpt .kpi{
     transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s,border-color .15s;}
   .pg-prod .kpi:hover,.pg-prod .cat-card:hover,.pg-stock .st-k:hover,.pg-mkt .kbox:hover,.pg-mkt .wcard:hover,.pg-team .mini:hover,.pg-rcpt .kpi:hover{
-    transform:translateY(-1px);box-shadow:0 1px 2px rgba(27,42,74,.05),0 6px 16px rgba(27,42,74,.07);}
-  .pg-mkt .ins:hover,.pg-mkt .ncard:hover{transform:translateY(-1px);}
+    transform:translateY(-4px);box-shadow:0 14px 30px rgba(30,41,59,.10);}
+  .pg-mkt .ins:hover,.pg-mkt .ncard:hover{transform:translateY(-4px);box-shadow:0 14px 30px rgba(30,41,59,.10);}
+  /* 표 행: 마우스를 올리면 부드럽게 강조 */
+  main.content tbody tr{transition:background-color .2s ease;}
   /* 버튼 · 메뉴 색 전환 부드럽게 */
   .sb-item,.chip,.seg button,.tm-tabs button,.mk-seg button,.ntab,.sp-tabs button,.st-chip,.st-seg button,.gbtn,.btn{
     transition:background-color .22s,color .22s,border-color .22s,box-shadow .22s;}
@@ -5260,11 +5262,18 @@ function flush(){
   batch.forEach(el=>{
     if(el.matches(CARDS)){
       // 카드: 0.03초 간격(최대 0.24초)으로 살짝 떠오름 — 투명도는 건드리지 않아 화면 페이드와 겹쳐 깜빡이지 않음
-      const d=Math.min(ci++*30,240);
-      el.animate([{transform:'translateY(10px)'},{transform:'none'}],
-        {duration:500,delay:d,easing:'cubic-bezier(.2,.7,.2,1)',fill:'backwards'});
-      el.querySelectorAll(NUMS).forEach(n=>countUp(n,0));
-      el.querySelectorAll(BARS).forEach(b=>growBar(b,0));
+      // Streamlit 앱과 같은 느낌: 18px 아래에서 0.7초 동안 떠오름, 0.07초 간격
+      const d=Math.min(ci++*70,420);
+      el.animate([{opacity:0,transform:'translateY(18px)'},{opacity:1,transform:'none'}],
+        {duration:700,delay:d,easing:'cubic-bezier(.22,1,.36,1)',fill:'backwards'});
+      el.querySelectorAll(NUMS).forEach(n=>countUp(n,d));
+      el.querySelectorAll(BARS).forEach(b=>growBar(b,d+450));
+      // 차트: 왼쪽에서 오른쪽으로 펼쳐짐
+      el.querySelectorAll('canvas').forEach(c=>c.animate([{clipPath:'inset(0 100% 0 0)',opacity:.3},{clipPath:'inset(0 0 0 0)',opacity:1}],
+        {duration:1100,delay:d+300,easing:'cubic-bezier(.22,1,.36,1)',fill:'backwards'}));
+      // 표 행: 위에서부터 차례로 (앞쪽 12줄만)
+      [...el.querySelectorAll('tbody tr')].slice(0,12).forEach((tr,k)=>tr.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'none'}],
+        {duration:450,delay:d+40*k,easing:'ease-out',fill:'backwards'}));
     }else if(el.matches(NUMS)) countUp(el,0);
     else if(el.matches(BARS)) growBar(el,0);
   });
@@ -5292,7 +5301,7 @@ function countUp(el,delay){
     const pre=orig.slice(0,m.index), suf=orig.slice(m.index+m[0].length);
     let last=pre+fmt(0)+suf, st=null;
     t.nodeValue=last;
-    const dur=600;
+    const dur=1100;
     function step(now){
       if(t.nodeValue!==last) return;               // 그사이 화면이 다시 그려졌으면 손 떼기
       if(st===null) st=now;
@@ -5307,7 +5316,7 @@ function countUp(el,delay){
 /* 막대 채움 */
 function growBar(b,delay){
   b.style.transformOrigin='left center';
-  b.animate([{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:900,delay:delay||0,easing:EASE,fill:'backwards'});
+  b.animate([{transform:'scaleX(0)'},{transform:'scaleX(1)'}],{duration:1100,delay:delay||0,easing:'cubic-bezier(.22,1,.36,1)',fill:'backwards'});
 }
 
 /* 새로 그려진 요소 · 다시 열린 화면 감시 */
