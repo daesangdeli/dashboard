@@ -3477,7 +3477,8 @@ function renderControls(){
     const on=sel.indexOf(k)>=0, sub=S.view==='grp'?(S.ix[S.type].members.get(k)||[]).length+'종':groupOf(S.names.get(k));
     return '<span class="pp-chip'+(on?' on':'')+'" data-act="toggle" data-v="'+escH(k)+'"'+(on?' style="background:'+colorOf(k)+'"':'')+
       ' title="'+escH(S.view==='grp'?k:k+' '+nameOf(k))+'">'+escH(nameOf(k))+'<span class="g">'+escH(sub)+'</span></span>';
-  }).join('')+' <button class="pp-mini" data-act="all">전체 선택</button><button class="pp-mini" data-act="none">선택 해제</button>';
+  }).join('')+' <button class="pp-mini" data-act="all">전체 선택</button><button class="pp-mini" data-act="none">선택 해제</button>'+
+    ' <button class="pp-mini" data-act="xlsx" style="background:#1E7B3A;border-color:#1E7B3A;color:#fff;font-weight:700" title="선택한 항목 · 기간의 입고·사용·재고단가를 엑셀로">⬇ 엑셀 받기</button>';
 }
 function renderCards(){
   const sel=curSel(), cmpYm=S.cmp==='custom'?S.cmpYm:null;
@@ -3581,7 +3582,74 @@ function render(){
 }
 
 /* ---------- 조작 ---------- */
+/* ---------- 엑셀 받기: 요약 시트 + 선택 항목마다 시트 하나 (입고·사용·재고단가 + 전월 대비) ---------- */
+let xlsxStyled=null;
+function loadStyledXlsx(){   // 머리글 색·굵기를 넣을 수 있는 xlsx-js-style (처음 누를 때만 불러옴)
+  if(xlsxStyled) return Promise.resolve(xlsxStyled);
+  return new Promise(res=>{
+    const prev=window.XLSX, sc=document.createElement('script');
+    sc.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+    sc.onload=()=>{ xlsxStyled=window.XLSX; window.XLSX=prev; res(xlsxStyled); };
+    sc.onerror=()=>{ window.XLSX=prev; res(null); };
+    document.head.appendChild(sc);
+  });
+}
+async function exportXlsx(){
+  const keys=curSel();
+  if(!keys.length){ alert('엑셀로 받을 '+(S.view==='grp'?'그룹':'자재')+'을 먼저 선택해주세요.'); return; }
+  const X=(await loadStyledXlsx())||window.XLSX;
+  if(!X){ alert('엑셀 기능을 불러오지 못했습니다. 인터넷 연결을 확인해주세요.'); return; }
+  const grp=S.view==='grp', yms=periodYms(), base=Math.min(Math.max(S.base,S.from),S.to);
+  const get=(t,k,ym)=>{ const m=S.ix[t][grp?'grp':'mat'].get(k); const v=m&&m.get(ym); return v==null?null:Math.round(v); };
+  const chg=(a,b)=>a!=null&&b?(a-b)/b:null;
+  const T=TYPES.map(x=>x[0]);
+  const HEAD={font:{bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:'1F77B4'}},alignment:{horizontal:'center',vertical:'center',wrapText:true}};
+  const LINE={bottom:{style:'thin',color:{rgb:'E3E7EE'}}};
+  const NUM='#,##0', PCT='+0.0%;-0.0%;0.0%';
+  const styleRange=(ws,r0,r1,c0,c1,fn)=>{ for(let r=r0;r<=r1;r++) for(let c=c0;c<=c1;c++){ const a=X.utils.encode_cell({r,c}); if(!ws[a]) ws[a]={t:'z'}; fn(ws[a],r,c); } };
+  const wb=X.utils.book_new();
+  const now=new Date(), today=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+  // 요약
+  const H=[grp?'구분':'자재코드',grp?'그룹':'자재명',grp?'자재 수':'그룹','기준월','입고단가','사용단가','재고단가','입고\n전월대비','사용\n전월대비','재고\n전월대비','입고\n전년동월대비','사용\n전년동월대비','재고\n전년동월대비'];
+  const sum=[['원료육 단가 내려받기'],['받은 날짜',today],['기간',ymLbl(S.from)+' ~ '+ymLbl(S.to)+' ('+yms.length+'개월)'],
+    ['단위','원/kg'+(grp?' · 그룹 값은 소속 자재 단순평균':'')],['출처','구글 시트 "'+PP_SHEET+'"'],[],H];
+  keys.forEach(k=>{
+    const r=grp?['그룹',k,(S.ix[S.type].members.get(k)||[]).length+'종',ymLbl(base)]:[k,nameOf(k),groupOf(S.names.get(k)),ymLbl(base)];
+    T.forEach(t=>r.push(get(t,k,base)));
+    T.forEach(t=>r.push(chg(get(t,k,base),get(t,k,ymAdd(base,-1)))));
+    T.forEach(t=>r.push(chg(get(t,k,base),get(t,k,ymAdd(base,-12)))));
+    sum.push(r);
+  });
+  const ws0=X.utils.aoa_to_sheet(sum);
+  ws0['!cols']=[11,20,13,9,10,10,10,10,10,10,12,12,12].map(w=>({wch:w}));
+  ws0['!rows']=[{hpt:22},{},{},{},{},{},{hpt:32}];
+  ws0.A1.s={font:{bold:true,sz:13}};
+  for(let r=2;r<=5;r++){ const c=ws0['A'+r]; if(c) c.s={font:{bold:true,color:{rgb:'5B6B85'}}}; }
+  styleRange(ws0,6,6,0,H.length-1,c=>{ c.s=HEAD; });
+  styleRange(ws0,7,sum.length-1,0,H.length-1,(c,r,ci)=>{ c.s={border:LINE}; if(ci>=4&&ci<=6) c.z=NUM; if(ci>=7) c.z=PCT; });
+  X.utils.book_append_sheet(wb,ws0,'요약');
+  // 항목별 시트
+  const used={'요약':1};
+  keys.forEach(k=>{
+    const nm=String(nameOf(k));
+    const rows=[[nm+(grp?' (그룹 평균)':' ('+k+')')+' · 원/kg'],[],['연월','입고단가','사용단가','재고단가','입고 전월대비','사용 전월대비','재고 전월대비']];
+    yms.forEach(ym=>{ const r=[ymLbl(ym)]; T.forEach(t=>r.push(get(t,k,ym))); T.forEach(t=>r.push(chg(get(t,k,ym),get(t,k,ymAdd(ym,-1))))); rows.push(r); });
+    const ws=X.utils.aoa_to_sheet(rows);
+    ws['!cols']=[10,11,11,11,13,13,13].map(w=>({wch:w}));
+    ws.A1.s={font:{bold:true,sz:13}};
+    styleRange(ws,2,2,0,6,c=>{ c.s=HEAD; });
+    styleRange(ws,3,rows.length-1,0,6,(c,r,ci)=>{ c.s=ci===0?{border:LINE,alignment:{horizontal:'center'}}:{border:LINE}; if(ci>=1&&ci<=3) c.z=NUM; if(ci>=4) c.z=PCT; });
+    let sn=nm.replace(/[\[\]:*?\/\\]/g,'').slice(0,31)||'자재', n=1;
+    while(used[sn]){ n++; sn=sn.slice(0,28)+'_'+n; }
+    used[sn]=1;
+    X.utils.book_append_sheet(wb,ws,sn);
+  });
+  const fname='원료육단가_'+ymLbl(S.from)+'-'+ymLbl(S.to)+(keys.length===1?'_'+String(nameOf(keys[0])).replace(/[\\\/:*?"<>|]/g,''):'_'+keys.length+'개')+'.xlsx';
+  X.writeFile(wb,fname);
+  return {fname,sheets:wb.SheetNames};
+}
 function act(a,v){
+  if(a==='xlsx'){ exportXlsx(); return; }
   if(a==='type'){ S.type=v; ensureSel(); }
   else if(a==='view'){ S.view=v; S.focus=null; ensureSel(); }
   else if(a==='toggle'){ const L=S.sel[S.view], i=L.indexOf(v); if(i>=0) L.splice(i,1); else { L.push(v); S.focus=v; } }
@@ -3671,7 +3739,7 @@ if(typeof loadAll==='function'){ const orig=loadAll; loadAll=async function(){ c
 /* 상단 기준월을 바꾸면(직접 고른 적이 없을 때) 이 화면 기준월도 따라감 */
 if(typeof onGlobalMonthChange==='function'){ const og=onGlobalMonthChange; onGlobalMonthChange=function(){ og.apply(this,arguments);
   if(S.recs.length&&!S.baseTouched){ S.base=defaultBase(); render(); } }; }
-window.__pp={S,parse,stats,act,groupOf,render,loadPrice};
+window.__pp={S,parse,stats,act,groupOf,render,loadPrice,exportXlsx};
 })();
 </script>
 <style>
